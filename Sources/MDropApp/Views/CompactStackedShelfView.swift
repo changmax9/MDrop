@@ -90,12 +90,12 @@ struct CompactStackedShelfView: View {
             Image(systemName: "chevron.down")
                 .font(.system(size: 12, weight: .bold))
                 .frame(width: 30, height: 30)
-                .background(.white.opacity(0.09), in: .circle)
-                .glassEffect(.regular.interactive(), in: .circle)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .background(.white.opacity(0.09), in: .circle)
+        .glassEffect(.regular.interactive(), in: .circle)
         .help("Shelf Actions")
         .accessibilityLabel("Shelf Actions")
     }
