@@ -173,6 +173,7 @@ private struct EmptyShelfView: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 13, weight: .bold))
                             .frame(width: 28, height: 28)
+                            .background(.white.opacity(0.09), in: .circle)
                     }
                     .buttonStyle(.glass)
                     .buttonBorderShape(.circle)

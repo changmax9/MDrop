@@ -68,6 +68,7 @@ struct CompactStackedShelfView: View {
             Image(systemName: "xmark")
                 .font(.system(size: 13, weight: .bold))
                 .frame(width: 30, height: 30)
+                .background(.white.opacity(0.09), in: .circle)
         }
         .buttonStyle(.glass)
         .buttonBorderShape(.circle)
@@ -89,6 +90,7 @@ struct CompactStackedShelfView: View {
             Image(systemName: "chevron.down")
                 .font(.system(size: 12, weight: .bold))
                 .frame(width: 30, height: 30)
+                .background(.white.opacity(0.09), in: .circle)
                 .glassEffect(.regular.interactive(), in: .circle)
         }
         .menuStyle(.borderlessButton)
