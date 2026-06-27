@@ -5,12 +5,15 @@ import MDropCore
 final class ShelfActionController {
     private let executor = BuiltinActionExecutor()
     private let ingestService = DragIngestService(stagingDirectory: AppPaths.staging)
+    private let scriptRunner = ScriptRunner()
 
     func run(
         _ action: BuiltinActionID,
         store: ShelfStore,
         panel: NSPanel,
-        onChange: @escaping () -> Void
+        onChange: @escaping () -> Void,
+        onClose: @escaping () -> Void,
+        presetParameters: [String: ActionParameterValue]? = nil
     ) {
         let items = selectedItems(in: store)
         guard !items.isEmpty else { return }
@@ -20,7 +23,7 @@ final class ShelfActionController {
             return
         }
 
-        var parameters: [String: ActionParameterValue] = [:]
+        var parameters = presetParameters ?? [:]
         switch action {
         case .copyTo, .moveTo:
             guard let directory = chooseDirectory(relativeTo: panel) else { return }
@@ -32,17 +35,18 @@ final class ShelfActionController {
             guard let name = requestName(relativeTo: panel, initial: items[0].displayName) else { return }
             parameters["name"] = .string(name)
         case .resizeImages:
-            parameters["width"] = .integer(1600)
-            parameters["height"] = .integer(1600)
+            parameters["width"] = parameters["width"] ?? .integer(1600)
+            parameters["height"] = parameters["height"] ?? .integer(1600)
         case .compressImages:
-            parameters["quality"] = .double(0.72)
+            parameters["quality"] = parameters["quality"] ?? .double(0.72)
         case .convertImages:
-            parameters["format"] = .string("png")
+            parameters["format"] = parameters["format"] ?? .string("png")
         default:
             break
         }
 
         store.actionProgress = 0
+        store.cancelAction = nil
         Task {
             do {
                 let result = try await executor.run(
@@ -56,11 +60,79 @@ final class ShelfActionController {
                 )
                 apply(result, action: action, originalItems: items, to: store)
                 store.actionProgress = nil
+                store.cancelAction = nil
                 store.isCommandBarPresented = false
                 onChange()
+                if result.shouldCloseShelf, !store.shelf.isPinned {
+                    onClose()
+                }
             } catch {
                 store.actionProgress = nil
+                store.cancelAction = nil
                 store.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func run(
+        _ preset: CustomActionPreset,
+        store: ShelfStore,
+        panel: NSPanel,
+        onChange: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        run(
+            preset.action,
+            store: store,
+            panel: panel,
+            onChange: onChange,
+            onClose: onClose,
+            presetParameters: preset.parameters
+        )
+    }
+
+    func run(
+        _ script: ScriptDefinition,
+        store: ShelfStore,
+        onChange: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        let fileURLs = selectedItems(in: store).compactMap(\.fileURL)
+        let runID = UUID()
+        store.actionProgress = 0
+        store.cancelAction = { [weak self, weak store] in
+            Task {
+                await self?.scriptRunner.cancel(runID)
+                await MainActor.run {
+                    store?.cancelAction = nil
+                }
+            }
+        }
+        Task {
+            do {
+                let result = try await scriptRunner.run(
+                    script,
+                    fileURLs: fileURLs,
+                    logsDirectory: AppPaths.scriptLogs,
+                    runID: runID
+                )
+                if script.outputMode == .clipboard {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(result.standardOutput, forType: .string)
+                }
+                store.actionProgress = nil
+                store.cancelAction = nil
+                store.isCommandBarPresented = false
+                onChange()
+                if script.closesShelfOnSuccess {
+                    onClose()
+                }
+            } catch {
+                store.actionProgress = nil
+                store.cancelAction = nil
+                if (error as? ScriptRunError) != .cancelled {
+                    store.errorMessage = error.localizedDescription
+                }
             }
         }
     }
@@ -96,7 +168,7 @@ final class ShelfActionController {
     private func presentSharePicker(items: [ShelfItemRecord], from panel: NSPanel) {
         let sharingItems: [Any] = items.compactMap { item in
             switch item.payload {
-            case let .file(reference): reference.url
+            case .file: item.fileURL
             case let .text(value): value
             case let .url(url): url
             }

@@ -93,4 +93,32 @@ final class BuiltinActionExecutorTests: XCTestCase {
             0
         )
     }
+
+    func testRenameCannotEscapeSourceDirectory() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let source = directory.appending(path: "source.txt")
+        try Data("safe".utf8).write(to: source)
+        let request = ActionRequest(
+            items: [
+                ShelfItemRecord(
+                    payload: .file(FileReference(url: source)),
+                    displayName: source.lastPathComponent
+                )
+            ],
+            parameters: ["name": .string("../escaped.txt")]
+        )
+
+        let result = try await BuiltinActionExecutor().run(
+            .rename,
+            request: request
+        )
+
+        XCTAssertEqual(
+            result.createdFiles.first?.deletingLastPathComponent(),
+            directory
+        )
+        XCTAssertEqual(result.createdFiles.first?.lastPathComponent, "escaped.txt")
+    }
 }

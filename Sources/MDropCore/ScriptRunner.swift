@@ -73,6 +73,7 @@ public enum ScriptRunError: LocalizedError, Equatable, Sendable {
 
 public actor ScriptRunner {
     private var processes: [UUID: Process] = [:]
+    private var cancelledRuns: Set<UUID> = []
 
     public init() {}
 
@@ -83,12 +84,31 @@ public actor ScriptRunner {
         runID: UUID = UUID()
     ) async throws -> ScriptRunResult {
         let process = configuredProcess(definition, fileURLs: fileURLs)
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
+        let captureDirectory = FileManager.default.temporaryDirectory
+            .appending(
+                path: "MDrop-Script-\(runID.uuidString)",
+                directoryHint: .isDirectory
+            )
+        try FileManager.default.createDirectory(
+            at: captureDirectory,
+            withIntermediateDirectories: true
+        )
+        let outputURL = captureDirectory.appending(path: "stdout")
+        let errorURL = captureDirectory.appending(path: "stderr")
+        _ = FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+        _ = FileManager.default.createFile(atPath: errorURL.path, contents: nil)
+        let outputHandle = try FileHandle(forWritingTo: outputURL)
+        let errorHandle = try FileHandle(forWritingTo: errorURL)
+        process.standardOutput = outputHandle
+        process.standardError = errorHandle
         processes[runID] = process
-        defer { processes.removeValue(forKey: runID) }
+        defer {
+            try? outputHandle.close()
+            try? errorHandle.close()
+            try? FileManager.default.removeItem(at: captureDirectory)
+            processes.removeValue(forKey: runID)
+            cancelledRuns.remove(runID)
+        }
 
         try process.run()
         let started = Date()
@@ -110,10 +130,15 @@ public actor ScriptRunner {
             throw ScriptRunError.cancelled
         }
 
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        try outputHandle.close()
+        try errorHandle.close()
+        let outputData = try Data(contentsOf: outputURL)
+        let errorData = try Data(contentsOf: errorURL)
         let output = String(decoding: outputData, as: UTF8.self)
         let error = String(decoding: errorData, as: UTF8.self)
+        if cancelledRuns.contains(runID) {
+            throw ScriptRunError.cancelled
+        }
         try writeLogs(
             definition: definition,
             output: outputData,
@@ -135,6 +160,7 @@ public actor ScriptRunner {
     }
 
     public func cancel(_ runID: UUID) {
+        cancelledRuns.insert(runID)
         processes[runID]?.terminate()
     }
 

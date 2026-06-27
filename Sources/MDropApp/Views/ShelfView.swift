@@ -4,10 +4,11 @@ import SwiftUI
 
 struct ShelfView: View {
     @Bindable var store: ShelfStore
-    let onDrop: ([DropRepresentation]) -> Void
     let onToggleDetail: () -> Void
     let onDock: () -> Void
     let onAction: (BuiltinActionID) -> Void
+    let onPreset: (CustomActionPreset) -> Void
+    let onScript: (ScriptDefinition) -> Void
     let onChange: () -> Void
     let onClose: () -> Void
     @Namespace private var glassNamespace
@@ -16,12 +17,18 @@ struct ShelfView: View {
         GlassEffectContainer(spacing: 10) {
             Group {
                 switch store.shelf.presentationState {
+                case .empty:
+                    EmptyShelfView(
+                        onClose: onClose
+                    )
                 case .detail:
                     ShelfDetailView(
                         store: store,
                         onCollapse: onToggleDetail,
                         onDock: onDock,
                         onAction: onAction,
+                        onPreset: onPreset,
+                        onScript: onScript,
                         onChange: onChange,
                         onClose: onClose
                     )
@@ -31,19 +38,20 @@ struct ShelfView: View {
                         onUndock: onDock,
                         onClose: onClose
                     )
-                case .empty, .compact, .instantActions:
+                case .compact, .instantActions:
                     CompactShelfView(
                         store: store,
                         onExpand: onToggleDetail,
                         onDock: onDock,
                         onAction: onAction,
+                        onChange: onChange,
                         onClose: onClose
                     )
                 }
             }
             .glassEffect(
                 .regular.interactive(),
-                in: .rect(cornerRadius: store.shelf.presentationState == .docked ? 20 : 26)
+                in: .rect(cornerRadius: glassCornerRadius)
             )
             .glassEffectID(store.shelf.id, in: glassNamespace)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -51,15 +59,11 @@ struct ShelfView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(10)
         .overlay {
-            DropReceiverView(
-                onTargeted: { store.isReceivingDrop = $0 },
-                onDrop: onDrop
-            )
-            .allowsHitTesting(false)
-        }
-        .overlay {
             if store.isReceivingDrop {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                RoundedRectangle(
+                    cornerRadius: glassCornerRadius,
+                    style: .continuous
+                )
                     .stroke(.tint, style: StrokeStyle(lineWidth: 3, dash: [7, 5]))
                     .padding(11)
                     .allowsHitTesting(false)
@@ -80,12 +84,74 @@ struct ShelfView: View {
             if store.isCommandBarPresented {
                 CommandBarView(
                     store: store,
-                    onAction: onAction
+                    onAction: onAction,
+                    onPreset: onPreset,
+                    onScript: onScript
                 )
                 .transition(.scale.combined(with: .opacity))
                 .padding(18)
             }
         }
+        .overlay(alignment: .bottom) {
+            if let progress = store.actionProgress {
+                HStack(spacing: 10) {
+                    ProgressView(value: progress)
+                        .frame(width: 150)
+                    if let cancel = store.cancelAction {
+                        Button("Cancel", action: cancel)
+                            .buttonStyle(.glass)
+                    }
+                }
+                .padding(10)
+                .glassEffect(.regular, in: .capsule)
+                .padding(.bottom, 16)
+                .accessibilityLabel("Action progress")
+            }
+        }
+    }
+
+    private var glassCornerRadius: CGFloat {
+        switch store.shelf.presentationState {
+        case .empty:
+            44
+        case .docked:
+            20
+        case .compact, .detail, .instantActions:
+            26
+        }
+    }
+}
+
+private struct EmptyShelfView: View {
+    let onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            Text("Drop files here")
+                .font(.system(size: 27, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+
+            VStack {
+                HStack {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.glass)
+                    .help("Close Shelf")
+                    .accessibilityLabel("Close Shelf")
+
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(18)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(.rect(cornerRadius: 44))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Empty MDrop Shelf")
     }
 }
 
@@ -94,7 +160,9 @@ private struct CompactShelfView: View {
     let onExpand: () -> Void
     let onDock: () -> Void
     let onAction: (BuiltinActionID) -> Void
+    let onChange: () -> Void
     let onClose: () -> Void
+    @State private var instantSettings = InstantActionSettings.shared
 
     var body: some View {
         VStack(spacing: 12) {
@@ -121,6 +189,7 @@ private struct CompactShelfView: View {
                     Button("Dock Shelf", systemImage: "sidebar.left", action: onDock)
                     Button(store.shelf.isPinned ? "Unpin Shelf" : "Pin Shelf", systemImage: "pin") {
                         store.shelf.isPinned.toggle()
+                        onChange()
                     }
                     Divider()
                     Button("Close Shelf", systemImage: "xmark", action: onClose)
@@ -132,42 +201,36 @@ private struct CompactShelfView: View {
             }
             .font(.system(size: 12, weight: .semibold))
 
-            if store.shelf.items.isEmpty {
-                VStack(spacing: 7) {
-                    Image(systemName: "arrow.down.doc")
-                        .font(.title2)
-                    Text("Drop files here")
-                        .font(.headline)
-                    Text("Shake while dragging or press ⌥⇧Space")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            HStack(spacing: -9) {
+                ForEach(Array(store.shelf.items.prefix(5))) { item in
+                    ShelfItemIcon(item: item, size: 54)
+                        .onDrag { makeItemProvider(for: item) }
                 }
-                .frame(maxWidth: .infinity)
-            } else {
-                HStack(spacing: -9) {
-                    ForEach(Array(store.shelf.items.prefix(5))) { item in
-                        ShelfItemIcon(item: item, size: 54)
-                            .onDrag { makeItemProvider(for: item) }
+                if store.shelf.items.count > 5 {
+                    Text("+\(store.shelf.items.count - 5)")
+                        .font(.caption.bold())
+                        .padding(7)
+                        .glassEffect(.regular, in: .circle)
                     }
-                    if store.shelf.items.count > 5 {
-                        Text("+\(store.shelf.items.count - 5)")
-                            .font(.caption.bold())
-                            .padding(7)
-                            .glassEffect(.regular, in: .circle)
-                    }
-                    Spacer(minLength: 0)
-                }
+                Spacer(minLength: 0)
             }
 
-            if store.showsInstantActions {
-                HStack {
-                    instantButton(.systemShare)
-                    instantButton(.createArchive)
-                    instantButton(.copyTo)
-                    instantButton(.moveTo)
+            if store.showsInstantActions, !instantActions.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(instantActions, id: \.rawValue) { action in
+                        instantButton(action)
+                    }
+                    Button {
+                        withAnimation(.snappy) {
+                            store.showsInstantActions = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.glass)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if store.shelf.items.isEmpty {
+            } else {
                 Button {
                     withAnimation(.snappy) {
                         store.showsInstantActions.toggle()
@@ -196,6 +259,10 @@ private struct CompactShelfView: View {
         .help(action.displayTitle)
     }
 
+    private var instantActions: [BuiltinActionID] {
+        instantSettings.configuration.availableActions(for: store.shelf.items)
+    }
+
     private var title: String {
         if !store.shelf.name.isEmpty { return store.shelf.name }
         return store.shelf.items.isEmpty
@@ -209,8 +276,11 @@ private struct ShelfDetailView: View {
     let onCollapse: () -> Void
     let onDock: () -> Void
     let onAction: (BuiltinActionID) -> Void
+    let onPreset: (CustomActionPreset) -> Void
+    let onScript: (ScriptDefinition) -> Void
     let onChange: () -> Void
     let onClose: () -> Void
+    @AppStorage("autoCloseDetail") private var autoCloseDetail = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -237,17 +307,28 @@ private struct ShelfDetailView: View {
             ScrollView {
                 LazyVStack(spacing: 5) {
                     ForEach(store.shelf.items) { item in
-                        ShelfItemRow(
-                            item: item,
-                            isSelected: store.selectedItemIDs.contains(item.id)
-                        )
-                        .contentShape(.rect)
-                        .onTapGesture {
+                        Button {
                             store.toggleSelection(
                                 item.id,
                                 extending: NSEvent.modifierFlags.contains(.command)
                             )
+                        } label: {
+                            ShelfItemRow(
+                                item: item,
+                                isSelected: store.selectedItemIDs.contains(item.id),
+                                onMoveBefore: { sourceID in
+                                    store.shelf.moveItem(sourceID, before: item.id)
+                                    onChange()
+                                },
+                                onDragStarted: {
+                                    if autoCloseDetail {
+                                        onCollapse()
+                                    }
+                                }
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .contentShape(.rect)
                         .contextMenu {
                             Button("Copy Path") {
                                 if let url = item.fileURL {
@@ -260,7 +341,6 @@ private struct ShelfDetailView: View {
                                 onChange()
                             }
                         }
-                        .onDrag { makeItemProvider(for: item) }
                     }
                 }
                 .padding(.vertical, 2)
@@ -274,7 +354,9 @@ private struct ShelfDetailView: View {
                     items: store.selectedItemIDs.isEmpty
                         ? store.shelf.items
                         : store.shelf.items.filter { store.selectedItemIDs.contains($0.id) },
-                    onAction: onAction
+                    onAction: onAction,
+                    onPreset: onPreset,
+                    onScript: onScript
                 )
             }
             .font(.caption)
@@ -287,12 +369,30 @@ private struct ShelfDetailView: View {
 private struct ActionMenu: View {
     let items: [ShelfItemRecord]
     let onAction: (BuiltinActionID) -> Void
+    let onPreset: (CustomActionPreset) -> Void
+    let onScript: (ScriptDefinition) -> Void
+    @State private var automation = AutomationStore.shared
 
     var body: some View {
         Menu {
             ForEach(sortedActions, id: \.rawValue) { action in
                 Button(action.displayTitle, systemImage: action.symbolName) {
                     onAction(action)
+                }
+            }
+            if !automation.customActions.isEmpty {
+                Divider()
+                Menu("Custom Actions") {
+                    ForEach(automation.customActions) { preset in
+                        Button(preset.name) { onPreset(preset) }
+                    }
+                }
+            }
+            if !automation.scripts.isEmpty {
+                Menu("Scripts") {
+                    ForEach(automation.scripts) { script in
+                        Button(script.name) { onScript(script) }
+                    }
                 }
             }
         } label: {
@@ -311,6 +411,9 @@ private struct ActionMenu: View {
 private struct CommandBarView: View {
     @Bindable var store: ShelfStore
     let onAction: (BuiltinActionID) -> Void
+    let onPreset: (CustomActionPreset) -> Void
+    let onScript: (ScriptDefinition) -> Void
+    @State private var automation = AutomationStore.shared
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -340,6 +443,22 @@ private struct CommandBarView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    ForEach(automation.customActions) { preset in
+                        Button {
+                            onPreset(preset)
+                        } label: {
+                            commandRow(title: preset.name, symbol: "wand.and.stars")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    ForEach(automation.scripts) { script in
+                        Button {
+                            onScript(script)
+                        } label: {
+                            commandRow(title: script.name, symbol: "terminal")
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .frame(maxHeight: 220)
@@ -349,6 +468,17 @@ private struct CommandBarView: View {
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
         .shadow(radius: 22, y: 12)
         .onAppear { isFocused = true }
+    }
+
+    private func commandRow(title: String, symbol: String) -> some View {
+        HStack {
+            Image(systemName: symbol)
+                .frame(width: 22)
+            Text(title)
+            Spacer()
+        }
+        .padding(8)
+        .contentShape(.rect)
     }
 
     private var filteredActions: [BuiltinActionID] {
@@ -390,10 +520,16 @@ private struct DockedShelfView: View {
 private struct ShelfItemRow: View {
     let item: ShelfItemRecord
     let isSelected: Bool
+    let onMoveBefore: (UUID) -> Void
+    let onDragStarted: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             ShelfItemIcon(item: item, size: 38)
+                .onDrag {
+                    onDragStarted()
+                    return makeItemProvider(for: item)
+                }
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.displayName)
                     .lineLimit(1)
@@ -402,18 +538,34 @@ private struct ShelfItemRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(.tertiary)
+                .draggable(item.id.uuidString)
+                .accessibilityLabel("Reorder \(item.displayName)")
         }
         .padding(7)
         .background(
             isSelected ? Color.accentColor.opacity(0.22) : .clear,
             in: .rect(cornerRadius: 11)
         )
+        .dropDestination(for: String.self) { values, _ in
+            guard let value = values.first,
+                  let sourceID = UUID(uuidString: value) else {
+                return false
+            }
+            onMoveBefore(sourceID)
+            return true
+        }
     }
 
     private var itemDetail: String {
         switch item.payload {
-        case let .file(reference):
-            return reference.url.pathExtension.uppercased()
+        case .file:
+            guard let url = item.fileURL,
+                  FileManager.default.fileExists(atPath: url.path) else {
+                return String(localized: "Missing source")
+            }
+            return url.pathExtension.uppercased()
         case .text:
             return String(localized: "Text")
         case .url:
@@ -437,20 +589,33 @@ private struct ShelfItemIcon: View {
 
     private var icon: NSImage {
         switch item.payload {
-        case let .file(reference):
-            NSWorkspace.shared.icon(forFile: reference.url.path)
+        case .file:
+            guard let url = item.fileURL else {
+                return NSImage(
+                    systemSymbolName: "exclamationmark.triangle",
+                    accessibilityDescription: String(localized: "Missing source")
+                ) ?? NSImage()
+            }
+            return NSWorkspace.shared.icon(forFile: url.path)
         case .text:
-            NSImage(systemSymbolName: "text.quote", accessibilityDescription: nil) ?? NSImage()
+            return NSImage(
+                systemSymbolName: "text.quote",
+                accessibilityDescription: nil
+            ) ?? NSImage()
         case .url:
-            NSImage(systemSymbolName: "link", accessibilityDescription: nil) ?? NSImage()
+            return NSImage(
+                systemSymbolName: "link",
+                accessibilityDescription: nil
+            ) ?? NSImage()
         }
     }
 }
 
 private func makeItemProvider(for item: ShelfItemRecord) -> NSItemProvider {
     switch item.payload {
-    case let .file(reference):
-        return NSItemProvider(contentsOf: reference.url) ?? NSItemProvider()
+    case .file:
+        guard let url = item.fileURL else { return NSItemProvider() }
+        return NSItemProvider(contentsOf: url) ?? NSItemProvider()
     case let .text(value):
         return NSItemProvider(object: value as NSString)
     case let .url(url):

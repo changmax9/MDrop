@@ -37,4 +37,25 @@ final class ShelfRecordTests: XCTestCase {
 
         XCTAssertTrue(shelf.shouldAutoClose)
     }
+
+    func testMoveItemPlacesDraggedItemBeforeDestination() {
+        let first = ShelfItemRecord.text("First")
+        let second = ShelfItemRecord.text("Second")
+        let third = ShelfItemRecord.text("Third")
+        var shelf = ShelfRecord(items: [first, second, third])
+
+        shelf.moveItem(first.id, before: third.id)
+
+        XCTAssertEqual(shelf.items.map(\.id), [second.id, first.id, third.id])
+    }
+
+    func testInvalidBookmarkFallsBackToOriginalURL() {
+        let original = URL(filePath: "/tmp/missing-mdrop-file")
+        let reference = FileReference(
+            url: original,
+            bookmarkData: Data("not-a-bookmark".utf8)
+        )
+
+        XCTAssertEqual(reference.resolvedURL(), original)
+    }
 }

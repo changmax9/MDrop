@@ -33,6 +33,19 @@ public struct FileReference: Codable, Hashable, Sendable {
         self.url = url
         self.bookmarkData = bookmarkData
     }
+
+    public func resolvedURL() -> URL {
+        guard let bookmarkData else { return url }
+        var isStale = false
+        return (
+            try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope, .withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+        ) ?? url
+    }
 }
 
 public enum ShelfItemPayload: Codable, Hashable, Sendable {
@@ -120,6 +133,27 @@ public struct ShelfRecord: Identifiable, Codable, Hashable, Sendable {
     public mutating func removeAll(now: Date = .now) {
         items.removeAll()
         presentationState = .empty
+        modifiedAt = now
+    }
+
+    public mutating func moveItem(
+        _ itemID: UUID,
+        before destinationID: UUID,
+        now: Date = .now
+    ) {
+        guard itemID != destinationID,
+              let sourceIndex = items.firstIndex(where: { $0.id == itemID }),
+              let originalDestinationIndex = items.firstIndex(where: {
+                  $0.id == destinationID
+              }) else {
+            return
+        }
+
+        let item = items.remove(at: sourceIndex)
+        let destinationIndex = sourceIndex < originalDestinationIndex
+            ? originalDestinationIndex - 1
+            : originalDestinationIndex
+        items.insert(item, at: destinationIndex)
         modifiedAt = now
     }
 }

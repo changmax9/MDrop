@@ -4,46 +4,32 @@ set -euo pipefail
 MODE="${1:-run}"
 APP_NAME="MDrop"
 BUNDLE_ID="com.maxchang.MDrop"
-MIN_SYSTEM_VERSION="26.0"
+CONFIGURATION="${MDROP_CONFIGURATION:-Debug}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
-APP_CONTENTS="$APP_BUNDLE/Contents"
-APP_MACOS="$APP_CONTENTS/MacOS"
-APP_RESOURCES="$APP_CONTENTS/Resources"
-APP_BINARY="$APP_MACOS/$APP_NAME"
-INFO_PLIST="$APP_CONTENTS/Info.plist"
+DERIVED_DATA="$ROOT_DIR/DerivedData"
+BUILD_APP="$DERIVED_DATA/Build/Products/$CONFIGURATION/$APP_NAME.app"
+APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
-swift build --package-path "$ROOT_DIR" --product "$APP_NAME"
-BUILD_DIR="$(swift build --package-path "$ROOT_DIR" --show-bin-path)"
-BUILD_BINARY="$BUILD_DIR/$APP_NAME"
+xcodebuild \
+  -project "$ROOT_DIR/MDrop.xcodeproj" \
+  -scheme "$APP_NAME" \
+  -configuration "$CONFIGURATION" \
+  -derivedDataPath "$DERIVED_DATA" \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 
 rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS" "$APP_RESOURCES"
-cp "$BUILD_BINARY" "$APP_BINARY"
-chmod +x "$APP_BINARY"
-
-find "$BUILD_DIR" -maxdepth 1 -name '*.bundle' -exec cp -R {} "$APP_RESOURCES/" \;
-
-plutil -create xml1 "$INFO_PLIST"
-plutil -insert CFBundleExecutable -string "$APP_NAME" "$INFO_PLIST"
-plutil -insert CFBundleIdentifier -string "$BUNDLE_ID" "$INFO_PLIST"
-plutil -insert CFBundleName -string "$APP_NAME" "$INFO_PLIST"
-plutil -insert CFBundleDisplayName -string "$APP_NAME" "$INFO_PLIST"
-plutil -insert CFBundlePackageType -string "APPL" "$INFO_PLIST"
-plutil -insert CFBundleShortVersionString -string "0.1.0" "$INFO_PLIST"
-plutil -insert CFBundleVersion -string "1" "$INFO_PLIST"
-plutil -insert LSMinimumSystemVersion -string "$MIN_SYSTEM_VERSION" "$INFO_PLIST"
-plutil -insert LSUIElement -bool true "$INFO_PLIST"
-plutil -insert NSPrincipalClass -string "NSApplication" "$INFO_PLIST"
-plutil -insert CFBundleURLTypes -json \
-  '[{"CFBundleURLName":"com.maxchang.MDrop","CFBundleURLSchemes":["mdrop"]}]' \
-  "$INFO_PLIST"
-
+mkdir -p "$DIST_DIR"
+cp -R "$BUILD_APP" "$APP_BUNDLE"
 codesign --force --deep --sign - "$APP_BUNDLE"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+"$LSREGISTER" -u "$BUILD_APP" >/dev/null 2>&1 || true
+"$LSREGISTER" -f "$APP_BUNDLE"
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

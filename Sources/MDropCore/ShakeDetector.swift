@@ -58,4 +58,11 @@ public struct ShakeDetector: Sendable {
         lastDirection = nil
         return true
     }
+
+    public mutating func reset() {
+        lastX = nil
+        lastDirection = nil
+        reversalTimes.removeAll()
+        lastTriggerTime = nil
+    }
 }

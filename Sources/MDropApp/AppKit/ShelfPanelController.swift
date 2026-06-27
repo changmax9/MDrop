@@ -8,12 +8,57 @@ final class ShelfPanel: NSPanel {
 }
 
 @MainActor
+final class ShelfDropContainerView: NSView {
+    var onDropTargeted: ((Bool) -> Void)?
+    var onDrop: (([DropRepresentation]) -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configureDropDestination()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureDropDestination()
+    }
+
+    private func configureDropDestination() {
+        registerForDraggedTypes(
+            [.fileURL, .URL, .string, .png, .tiff] +
+            NSFilePromiseReceiver.readableDraggedTypes.map {
+                NSPasteboard.PasteboardType(rawValue: $0)
+            }
+        )
+    }
+
+    override func draggingEntered(
+        _ sender: NSDraggingInfo
+    ) -> NSDragOperation {
+        onDropTargeted?(true)
+        return .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onDropTargeted?(false)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        onDropTargeted?(false)
+        return DragPasteboardReceiver.perform(sender, onDrop: onDrop)
+    }
+}
+
+@MainActor
 final class ShelfPanelController {
     let panel: ShelfPanel
     let store: ShelfStore
     private let onChange: () -> Void
+    private let onClose: () -> Void
+    private let hostingView: NSHostingView<ShelfView>
     private let actionController = ShelfActionController()
+    private let quickLookController = QuickLookController()
     private var keyMonitor: Any?
+    private let emptySize = NSSize(width: 396, height: 414)
     private let compactSize = NSSize(width: 300, height: 146)
     private let detailSize = NSSize(width: 430, height: 440)
     private let dockedSize = NSSize(width: 92, height: 250)
@@ -27,8 +72,10 @@ final class ShelfPanelController {
     ) {
         store = ShelfStore(shelf: shelf)
         self.onChange = onChange
+        self.onClose = onClose
         let size = Self.size(
             for: shelf.presentationState,
+            empty: emptySize,
             compact: compactSize,
             detail: detailSize,
             docked: dockedSize
@@ -42,15 +89,31 @@ final class ShelfPanelController {
 
         let view = ShelfView(
             store: store,
-            onDrop: onDrop,
             onToggleDetail: {},
             onDock: {},
             onAction: { _ in },
+            onPreset: { _ in },
+            onScript: { _ in },
             onChange: onChange,
             onClose: onClose
         )
-        let hostingController = NSHostingController(rootView: view)
-        panel.contentViewController = hostingController
+        hostingView = NSHostingView(rootView: view)
+        let dropContainer = ShelfDropContainerView(
+            frame: NSRect(origin: .zero, size: size)
+        )
+        dropContainer.onDropTargeted = { [weak store] targeted in
+            store?.isReceivingDrop = targeted
+        }
+        dropContainer.onDrop = onDrop
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        dropContainer.addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: dropContainer.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: dropContainer.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: dropContainer.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: dropContainer.bottomAnchor)
+        ])
+        panel.contentView = dropContainer
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
@@ -62,12 +125,13 @@ final class ShelfPanelController {
         panel.animationBehavior = .utilityWindow
         position(at: location ?? NSEvent.mouseLocation)
 
-        hostingController.rootView = ShelfView(
+        hostingView.rootView = ShelfView(
             store: store,
-            onDrop: onDrop,
             onToggleDetail: { [weak self] in self?.toggleDetail() },
             onDock: { [weak self] in self?.toggleDock() },
             onAction: { [weak self] action in self?.run(action) },
+            onPreset: { [weak self] preset in self?.run(preset) },
+            onScript: { [weak self] script in self?.run(script) },
             onChange: onChange,
             onClose: onClose
         )
@@ -90,6 +154,7 @@ final class ShelfPanelController {
     func refreshSize() {
         resize(to: Self.size(
             for: store.shelf.presentationState,
+            empty: emptySize,
             compact: compactSize,
             detail: detailSize,
             docked: dockedSize
@@ -108,7 +173,27 @@ final class ShelfPanelController {
             action,
             store: store,
             panel: panel,
-            onChange: onChange
+            onChange: onChange,
+            onClose: onClose
+        )
+    }
+
+    private func run(_ preset: CustomActionPreset) {
+        actionController.run(
+            preset,
+            store: store,
+            panel: panel,
+            onChange: onChange,
+            onClose: onClose
+        )
+    }
+
+    private func run(_ script: ScriptDefinition) {
+        actionController.run(
+            script,
+            store: store,
+            onChange: onChange,
+            onClose: onClose
         )
     }
 
@@ -129,6 +214,19 @@ final class ShelfPanelController {
                 return nil
             case ("\t", _):
                 toggleDetail()
+                return nil
+            case (" ", _):
+                let selected = store.selectedItemIDs.isEmpty
+                    ? store.shelf.items
+                    : store.shelf.items.filter { store.selectedItemIDs.contains($0.id) }
+                quickLookController.show(selected.compactMap(\.fileURL))
+                return nil
+            case ("\u{7f}", _):
+                let ids = store.selectedItemIDs.isEmpty
+                    ? Set(store.shelf.items.map(\.id))
+                    : store.selectedItemIDs
+                store.remove(ids)
+                onChange()
                 return nil
             default:
                 return event
@@ -160,7 +258,12 @@ final class ShelfPanelController {
         var frame = panel.frame
         frame.origin.y += frame.height - size.height
         frame.size = size
-        panel.setFrame(frame, display: true, animate: !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        let appReducedMotion = UserDefaults.standard.bool(forKey: "reduceShelfMotion")
+        panel.setFrame(
+            frame,
+            display: true,
+            animate: !appReducedMotion && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )
     }
 
     private func position(at point: CGPoint) {
@@ -174,16 +277,19 @@ final class ShelfPanelController {
 
     private static func size(
         for state: ShelfPresentationState,
+        empty: NSSize,
         compact: NSSize,
         detail: NSSize,
         docked: NSSize
     ) -> NSSize {
         switch state {
+        case .empty:
+            empty
         case .detail:
             detail
         case .docked:
             docked
-        case .empty, .compact, .instantActions:
+        case .compact, .instantActions:
             compact
         }
     }

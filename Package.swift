@@ -9,7 +9,8 @@ let package = Package(
     ],
     products: [
         .library(name: "MDropCore", targets: ["MDropCore"]),
-        .executable(name: "MDrop", targets: ["MDropApp"])
+        .executable(name: "MDrop", targets: ["MDropApp"]),
+        .executable(name: "MDropHarness", targets: ["MDropHarness"])
     ],
     targets: [
         .target(name: "MDropCore"),
@@ -17,6 +18,7 @@ let package = Package(
             name: "MDropApp",
             dependencies: ["MDropCore"]
         ),
+        .executableTarget(name: "MDropHarness"),
         .testTarget(
             name: "MDropCoreTests",
             dependencies: ["MDropCore"]

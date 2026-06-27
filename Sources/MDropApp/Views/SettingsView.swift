@@ -1,4 +1,8 @@
 import SwiftUI
+import UniformTypeIdentifiers
+import MDropCore
+import ServiceManagement
+import AppKit
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
     case general
@@ -47,9 +51,16 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @State private var selection: SettingsSection? = .general
+    @State private var automation = AutomationStore.shared
+    @State private var instantActions = InstantActionSettings.shared
+    @State private var importsScripts = false
+    @State private var importsFolder = false
+    @State private var importedFolderIsForScreenshots = false
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("shakeEnabled") private var shakeEnabled = true
     @AppStorage("shakeSensitivity") private var shakeSensitivity = 0.5
+    @AppStorage("menuBarDropEnabled") private var menuBarDropEnabled = true
+    @AppStorage("notchDropEnabled") private var notchDropEnabled = true
     @AppStorage("copyByDefault") private var copyByDefault = false
     @AppStorage("autoCloseDetail") private var autoCloseDetail = false
     @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
@@ -71,6 +82,58 @@ struct SettingsView: View {
             .navigationTitle(selection?.title ?? "Settings")
         }
         .frame(width: 760, height: 520)
+        .fileImporter(
+            isPresented: $importsScripts,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            if case let .success(urls) = result {
+                for url in urls {
+                    let accessed = url.startAccessingSecurityScopedResource()
+                    automation.addScript(url)
+                    if accessed { url.stopAccessingSecurityScopedResource() }
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $importsFolder,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            if case let .success(urls) = result, let url = urls.first {
+                let accessed = url.startAccessingSecurityScopedResource()
+                automation.addWatchedFolder(
+                    url,
+                    screenshots: importedFolderIsForScreenshots
+                )
+                if accessed { url.stopAccessingSecurityScopedResource() }
+            }
+        }
+        .alert(
+            "MDrop",
+            isPresented: Binding(
+                get: { automation.errorMessage != nil },
+                set: { if !$0 { automation.errorMessage = nil } }
+            )
+        ) {
+            Button("OK") { automation.errorMessage = nil }
+        } message: {
+            Text(automation.errorMessage ?? "")
+        }
+        .onChange(of: launchAtLogin) { _, enabled in
+            do {
+                if enabled {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+            } catch {
+                automation.errorMessage = error.localizedDescription
+            }
+        }
+        .onChange(of: showDockIcon) { _, enabled in
+            NSApp.setActivationPolicy(enabled ? .regular : .accessory)
+        }
     }
 
     @ViewBuilder
@@ -96,8 +159,8 @@ struct SettingsView: View {
                 }
             }
             Section("Other Methods") {
-                Toggle("Drop to menu bar", isOn: .constant(true))
-                Toggle("Drop to MacBook notch", isOn: .constant(true))
+                Toggle("Drop to menu bar", isOn: $menuBarDropEnabled)
+                Toggle("Drop to MacBook notch", isOn: $notchDropEnabled)
             }
 
         case .interaction:
@@ -108,28 +171,153 @@ struct SettingsView: View {
 
         case .instantActions:
             Section("Instant Actions") {
-                Text("AirDrop, Messages, Mail, Resize, OCR and Archive")
+                Text("Choose up to six actions. Drag selected actions to reorder them.")
                     .foregroundStyle(.secondary)
-                Button("Customize…") {}
+                ForEach(instantActions.configuration.actions, id: \.rawValue) { action in
+                    Toggle(
+                        action.displayTitle,
+                        isOn: Binding(
+                            get: { instantActions.isEnabled(action) },
+                            set: { instantActions.setEnabled($0, for: action) }
+                        )
+                    )
+                }
+                .onMove(perform: instantActions.move)
+            }
+            Section("Available Actions") {
+                ForEach(
+                    BuiltinActionID.allCases.filter {
+                        !instantActions.isEnabled($0)
+                    },
+                    id: \.rawValue
+                ) { action in
+                    Toggle(
+                        action.displayTitle,
+                        isOn: Binding(
+                            get: { instantActions.isEnabled(action) },
+                            set: { instantActions.setEnabled($0, for: action) }
+                        )
+                    )
+                    .disabled(
+                        instantActions.configuration.actions.count >=
+                        InstantActionConfiguration.maximumActionCount
+                    )
+                }
             }
 
         case .customActions:
-            Section {
-                ContentUnavailableView(
-                    "No Custom Actions",
-                    systemImage: "wand.and.stars",
-                    description: Text("Save action parameters for one-click reuse.")
-                )
-                Button("Add Action…") {}
+            Section("Saved Presets") {
+                if automation.customActions.isEmpty {
+                    Text("Save action parameters for one-click reuse.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(automation.customActions.enumerated()), id: \.element.id) { index, preset in
+                        HStack {
+                            Label(preset.name, systemImage: preset.action.symbolName)
+                            Spacer()
+                            Button("Remove", systemImage: "trash") {
+                                automation.removePresets(at: IndexSet(integer: index))
+                            }
+                            .labelStyle(.iconOnly)
+                        }
+                    }
+                }
+                Menu("Add Action…") {
+                    Button("Resize Images") { automation.addPreset(for: .resizeImages) }
+                    Button("Compress Images") { automation.addPreset(for: .compressImages) }
+                    Button("Convert to PNG") { automation.addPreset(for: .convertImages) }
+                    Button("Create ZIP Archive") { automation.addPreset(for: .createArchive) }
+                }
             }
 
         case .automation:
             Section("Folder Monitoring") {
-                Button("Add Watched Folder…") {}
-                Button("Configure Screenshot Shelves…") {}
+                ForEach(Array(automation.watchedFolders.enumerated()), id: \.element.id) { index, folder in
+                    HStack {
+                        Label(
+                            folder.name,
+                            systemImage: folder.isScreenshotFolder ? "camera.viewfinder" : "folder"
+                        )
+                        Spacer()
+                        Button("Remove", systemImage: "trash") {
+                            automation.removeWatchedFolders(at: IndexSet(integer: index))
+                        }
+                        .labelStyle(.iconOnly)
+                    }
+                }
+                Button("Add Watched Folder…") {
+                    importedFolderIsForScreenshots = false
+                    importsFolder = true
+                }
+                Button("Configure Screenshot Shelves…") {
+                    importedFolderIsForScreenshots = true
+                    importsFolder = true
+                }
             }
             Section("Scripts") {
-                Button("Manage Scripts…") {}
+                ForEach(Array(automation.scripts.enumerated()), id: \.element.id) { index, script in
+                    DisclosureGroup {
+                        Picker(
+                            "Output",
+                            selection: Binding(
+                                get: { script.outputMode },
+                                set: { value in
+                                    automation.updateScript(script.id) {
+                                        $0.outputMode = value
+                                    }
+                                }
+                            )
+                        ) {
+                            Text("Ignore").tag(ScriptOutputMode.ignore)
+                            Text("Copy to Clipboard").tag(ScriptOutputMode.clipboard)
+                        }
+                        Stepper(
+                            "Timeout: \(Int(script.timeout)) seconds",
+                            value: Binding(
+                                get: { script.timeout },
+                                set: { value in
+                                    automation.updateScript(script.id) {
+                                        $0.timeout = value
+                                    }
+                                }
+                            ),
+                            in: 1...600,
+                            step: 1
+                        )
+                        Toggle(
+                            "Close Shelf after success",
+                            isOn: Binding(
+                                get: { script.closesShelfOnSuccess },
+                                set: { value in
+                                    automation.updateScript(script.id) {
+                                        $0.closesShelfOnSuccess = value
+                                    }
+                                }
+                            )
+                        )
+                    } label: {
+                        HStack {
+                            Label(script.name, systemImage: "terminal")
+                            Spacer()
+                            Text(script.kind.rawValue)
+                                .foregroundStyle(.secondary)
+                            Button("Remove", systemImage: "trash") {
+                                automation.removeScripts(
+                                    at: IndexSet(integer: index)
+                                )
+                            }
+                            .labelStyle(.iconOnly)
+                        }
+                    }
+                }
+                Button("Import Scripts…") {
+                    importsScripts = true
+                }
+                Button("Reveal Script Logs") {
+                    NSWorkspace.shared.activateFileViewerSelecting(
+                        [AppPaths.scriptLogs]
+                    )
+                }
             }
 
         case .integrations:
@@ -144,6 +332,13 @@ struct SettingsView: View {
                 LabeledContent("New Shelf", value: "⌥⇧Space")
                 LabeledContent("Clipboard Shelf", value: "⌥⇧A")
                 LabeledContent("Select Shelf", value: "⌥⇧S")
+                if !hotKeyRegistrationFailures.isEmpty {
+                    Label(
+                        "Some shortcuts are already used by another app.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .foregroundStyle(.orange)
+                }
             }
             Section("Shelf") {
                 LabeledContent("Command Bar", value: "⌘K")
@@ -171,5 +366,11 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var hotKeyRegistrationFailures: [String] {
+        UserDefaults.standard.stringArray(
+            forKey: "hotKeyRegistrationFailures"
+        ) ?? []
     }
 }

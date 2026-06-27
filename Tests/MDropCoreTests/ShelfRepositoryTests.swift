@@ -45,4 +45,41 @@ final class ShelfRepositoryTests: XCTestCase {
         XCTAssertEqual(archive.recent.filter { !$0.isPinned }.count, 10)
         XCTAssertEqual(archive.recent.first { !$0.isPinned }?.name, "Shelf 11")
     }
+
+    func testOlderVisibleRevisionCannotOverwriteNewerSnapshot() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let repository = ShelfRepository(
+            fileURL: directory.appending(path: "shelves.json")
+        )
+        let newer = ShelfRecord(name: "Newer")
+        let older = ShelfRecord(name: "Older")
+
+        _ = try await repository.saveVisible([newer], revision: 2)
+        _ = try await repository.saveVisible([older], revision: 1)
+
+        let archive = try await repository.load()
+        XCTAssertEqual(archive.visible, [newer])
+    }
+
+    func testLateClosePreservesNewerVisibleSnapshotAndRecentShelf() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let repository = ShelfRepository(
+            fileURL: directory.appending(path: "shelves.json")
+        )
+        let visible = ShelfRecord(name: "Still visible")
+        let closed = ShelfRecord(name: "Closed")
+
+        _ = try await repository.saveVisible([visible], revision: 3)
+        _ = try await repository.closeShelf(
+            closed,
+            visible: [],
+            revision: 2
+        )
+
+        let archive = try await repository.load()
+        XCTAssertEqual(archive.visible, [visible])
+        XCTAssertEqual(archive.recent.first, closed)
+    }
 }

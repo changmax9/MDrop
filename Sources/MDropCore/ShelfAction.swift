@@ -109,7 +109,7 @@ public enum BuiltinActionCatalog {
 public extension ShelfItemRecord {
     var fileURL: URL? {
         guard case let .file(reference) = payload else { return nil }
-        return reference.url
+        return reference.resolvedURL()
     }
 
     var containsText: Bool {

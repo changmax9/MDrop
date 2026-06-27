@@ -64,13 +64,14 @@ public struct BuiltinActionExecutor: Sendable {
         let parts = try items.compactMap { item -> String? in
             switch item.payload {
             case let .text(value):
-                value
+                return value
             case let .url(url):
-                url.absoluteString
-            case let .file(reference) where item.containsText:
-                try String(contentsOf: reference.url, encoding: .utf8)
+                return url.absoluteString
+            case .file where item.containsText:
+                guard let url = item.fileURL else { return nil }
+                return try String(contentsOf: url, encoding: .utf8)
             case .file:
-                nil
+                return nil
             }
         }
         guard !parts.isEmpty else {
@@ -119,12 +120,16 @@ public struct BuiltinActionExecutor: Sendable {
         guard let source = request.items.compactMap(\.fileURL).first else {
             throw ActionExecutionError.noCompatibleItems
         }
-        guard case let .string(name)? = request.parameters["name"],
-              !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard case let .string(name)? = request.parameters["name"] else {
+            throw ActionExecutionError.missingParameter("name")
+        }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeName = URL(filePath: trimmedName).lastPathComponent
+        guard !safeName.isEmpty, safeName != ".", safeName != ".." else {
             throw ActionExecutionError.missingParameter("name")
         }
         let destination = uniqueDestination(
-            for: name,
+            for: safeName,
             in: source.deletingLastPathComponent()
         )
         try FileManager.default.moveItem(at: source, to: destination)
@@ -164,12 +169,15 @@ public struct BuiltinActionExecutor: Sendable {
 
         for (index, item) in request.items.enumerated() {
             switch item.payload {
-            case let .file(reference):
+            case .file:
+                guard let source = item.fileURL else {
+                    throw ActionExecutionError.noCompatibleItems
+                }
                 let target = uniqueDestination(
-                    for: reference.url.lastPathComponent,
+                    for: source.lastPathComponent,
                     in: staging
                 )
-                try FileManager.default.copyItem(at: reference.url, to: target)
+                try FileManager.default.copyItem(at: source, to: target)
             case let .text(value):
                 let target = staging.appending(path: "Text \(index + 1).txt")
                 try Data(value.utf8).write(to: target)

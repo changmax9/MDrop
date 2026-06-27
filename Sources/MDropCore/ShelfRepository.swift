@@ -13,6 +13,7 @@ public struct ShelfArchive: Codable, Equatable, Sendable {
 public actor ShelfRepository {
     private let fileURL: URL
     private let maxRecent: Int
+    private var latestVisibleRevision = 0
 
     public init(fileURL: URL, maxRecent: Int = 10) {
         self.fileURL = fileURL
@@ -43,12 +44,54 @@ public actor ShelfRepository {
 
     public func rememberClosed(_ shelf: ShelfRecord) throws {
         var archive = try load()
-        archive.recent.removeAll { $0.id == shelf.id }
-        archive.recent.insert(shelf, at: 0)
-
-        let pinned = archive.recent.filter(\.isPinned)
-        let regular = archive.recent.filter { !$0.isPinned }
-        archive.recent = pinned + regular.prefix(maxRecent)
+        remember(shelf, in: &archive)
         try save(archive)
+    }
+
+    @discardableResult
+    public func saveVisible(
+        _ visible: [ShelfRecord],
+        revision: Int
+    ) throws -> ShelfArchive {
+        var archive = try load()
+        guard revision >= latestVisibleRevision else {
+            return archive
+        }
+        archive.visible = visible
+        latestVisibleRevision = revision
+        try save(archive)
+        return archive
+    }
+
+    @discardableResult
+    public func closeShelf(
+        _ shelf: ShelfRecord,
+        visible: [ShelfRecord],
+        revision: Int
+    ) throws -> ShelfArchive {
+        var archive = try load()
+        remember(shelf, in: &archive)
+        if revision >= latestVisibleRevision {
+            archive.visible = visible
+            latestVisibleRevision = revision
+        }
+        try save(archive)
+        return archive
+    }
+
+    private func remember(
+        _ shelf: ShelfRecord,
+        in archive: inout ShelfArchive
+    ) {
+        archive.recent.removeAll { $0.id == shelf.id }
+        archive.recent.append(shelf)
+
+        let pinned = archive.recent
+            .filter(\.isPinned)
+            .sorted { $0.modifiedAt > $1.modifiedAt }
+        let regular = archive.recent
+            .filter { !$0.isPinned }
+            .sorted { $0.modifiedAt > $1.modifiedAt }
+        archive.recent = pinned + regular.prefix(maxRecent)
     }
 }

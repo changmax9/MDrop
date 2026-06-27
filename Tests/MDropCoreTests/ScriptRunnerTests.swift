@@ -31,6 +31,31 @@ final class ScriptRunnerTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
     }
 
+    func testLargeScriptOutputDoesNotBlockProcess() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let script = directory.appending(path: "large-output.sh")
+        try Data(
+            "#!/bin/zsh\nhead -c 262144 /dev/zero | tr '\\\\0' 'x'\n".utf8
+        ).write(to: script)
+        chmod(script.path, 0o755)
+        let definition = ScriptDefinition(
+            name: "Large Output",
+            url: script,
+            kind: .shell,
+            timeout: 2
+        )
+
+        let result = try await ScriptRunner().run(
+            definition,
+            fileURLs: [],
+            logsDirectory: directory.appending(path: "Logs")
+        )
+
+        XCTAssertEqual(result.standardOutput.count, 262_144)
+    }
+
     func testScriptExceedingTimeoutIsTerminated() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
@@ -53,6 +78,74 @@ final class ScriptRunnerTests: XCTestCase {
             )
             XCTFail("Expected timeout")
         } catch ScriptRunError.timedOut {
+            // Expected.
+        }
+    }
+
+    func testCancellingTaskTerminatesScript() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let script = directory.appending(path: "cancel.sh")
+        try Data("#!/bin/zsh\nsleep 5\n".utf8).write(to: script)
+        chmod(script.path, 0o755)
+        let definition = ScriptDefinition(
+            name: "Cancel",
+            url: script,
+            kind: .shell,
+            timeout: 10
+        )
+        let runner = ScriptRunner()
+        let task = Task {
+            try await runner.run(
+                definition,
+                fileURLs: [],
+                logsDirectory: directory.appending(path: "Logs")
+            )
+        }
+
+        try await Task.sleep(for: .milliseconds(80))
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            XCTFail("Expected cancellation")
+        } catch ScriptRunError.cancelled {
+            // Expected.
+        }
+    }
+
+    func testCancellingByRunIDTerminatesScript() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let script = directory.appending(path: "cancel-by-id.sh")
+        try Data("#!/bin/zsh\nsleep 5\n".utf8).write(to: script)
+        chmod(script.path, 0o755)
+        let definition = ScriptDefinition(
+            name: "Cancel by ID",
+            url: script,
+            kind: .shell,
+            timeout: 10
+        )
+        let runner = ScriptRunner()
+        let runID = UUID()
+        let task = Task {
+            try await runner.run(
+                definition,
+                fileURLs: [],
+                logsDirectory: directory.appending(path: "Logs"),
+                runID: runID
+            )
+        }
+
+        try await Task.sleep(for: .milliseconds(80))
+        await runner.cancel(runID)
+
+        do {
+            _ = try await task.value
+            XCTFail("Expected cancellation")
+        } catch ScriptRunError.cancelled {
             // Expected.
         }
     }

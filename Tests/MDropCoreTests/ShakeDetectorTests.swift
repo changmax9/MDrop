@@ -50,4 +50,22 @@ final class ShakeDetectorTests: XCTestCase {
 
         XCTAssertFalse(detector.record(x: 30, at: 0.9))
     }
+
+    func testResetDiscardsPartialGesture() {
+        var detector = ShakeDetector(
+            configuration: .init(
+                timeWindow: 0.6,
+                minimumSegmentDistance: 20,
+                requiredReversals: 3,
+                cooldown: 1
+            )
+        )
+        for (x, time) in [(0.0, 0.0), (30, 0.1), (0, 0.2), (30, 0.3)] {
+            _ = detector.record(x: x, at: time)
+        }
+
+        detector.reset()
+
+        XCTAssertFalse(detector.record(x: 0, at: 0.4))
+    }
 }

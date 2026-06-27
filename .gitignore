@@ -2,6 +2,7 @@
 .worktrees/
 .build/
 DerivedData/
+DerivedData-*/
 dist/
 *.xcuserstate
 xcuserdata/

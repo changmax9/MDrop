@@ -1,10 +1,12 @@
 import Carbon
+import MDropCore
 
 @MainActor
 final class GlobalHotKeyManager {
     private var references: [EventHotKeyRef?] = []
     private var handlers: [UInt32: () -> Void] = [:]
     private var eventHandler: EventHandlerRef?
+    private(set) var registrationFailures: [String] = []
 
     init() {
         var eventType = EventTypeSpec(
@@ -46,15 +48,40 @@ final class GlobalHotKeyManager {
         selectShelf: @escaping () -> Void
     ) {
         let modifiers = UInt32(optionKey | shiftKey)
-        register(id: 1, keyCode: UInt32(kVK_Space), modifiers: modifiers, handler: newShelf)
-        register(id: 2, keyCode: UInt32(kVK_ANSI_A), modifiers: modifiers, handler: clipboardShelf)
-        register(id: 3, keyCode: UInt32(kVK_ANSI_S), modifiers: modifiers, handler: selectShelf)
+        let shortcuts = [
+            KeyboardShortcut(
+                id: "newShelf",
+                keyCode: UInt32(kVK_Space),
+                modifiers: modifiers
+            ),
+            KeyboardShortcut(
+                id: "clipboardShelf",
+                keyCode: UInt32(kVK_ANSI_A),
+                modifiers: modifiers
+            ),
+            KeyboardShortcut(
+                id: "selectShelf",
+                keyCode: UInt32(kVK_ANSI_S),
+                modifiers: modifiers
+            )
+        ]
+        guard KeyboardShortcutValidator.conflictingIDs(in: shortcuts).isEmpty else {
+            registrationFailures = shortcuts.map(\.id)
+            return
+        }
+        let callbacks = [newShelf, clipboardShelf, selectShelf]
+        for (index, shortcut) in shortcuts.enumerated() {
+            register(
+                id: UInt32(index + 1),
+                shortcut: shortcut,
+                handler: callbacks[index]
+            )
+        }
     }
 
     private func register(
         id: UInt32,
-        keyCode: UInt32,
-        modifiers: UInt32,
+        shortcut: KeyboardShortcut,
         handler: @escaping () -> Void
     ) {
         let signature = OSType(
@@ -66,8 +93,8 @@ final class GlobalHotKeyManager {
         var reference: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(signature: signature, id: id)
         if RegisterEventHotKey(
-            keyCode,
-            modifiers,
+            shortcut.keyCode,
+            shortcut.modifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,
@@ -75,6 +102,8 @@ final class GlobalHotKeyManager {
         ) == noErr {
             references.append(reference)
             handlers[id] = handler
+        } else {
+            registrationFailures.append(shortcut.id)
         }
     }
 
