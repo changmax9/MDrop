@@ -6,12 +6,15 @@ struct ShelfView: View {
     @Bindable var store: ShelfStore
     let onToggleDetail: () -> Void
     let onDock: () -> Void
+    let onQuickLook: () -> Void
+    let onAddClipboard: () -> Void
     let onAction: (BuiltinActionID) -> Void
     let onPreset: (CustomActionPreset) -> Void
     let onScript: (ScriptDefinition) -> Void
     let onChange: () -> Void
     let onClose: () -> Void
     @Namespace private var glassNamespace
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -39,25 +42,49 @@ struct ShelfView: View {
                         onClose: onClose
                     )
                 case .compact, .instantActions:
-                    CompactShelfView(
+                    CompactStackedShelfView(
                         store: store,
                         onExpand: onToggleDetail,
                         onDock: onDock,
+                        onQuickLook: onQuickLook,
+                        onAddClipboard: onAddClipboard,
                         onAction: onAction,
                         onChange: onChange,
                         onClose: onClose
                     )
                 }
             }
+            .background(
+                Color(red: 0.018, green: 0.032, blue: 0.058)
+                    .opacity(0.84),
+                in: .rect(cornerRadius: glassCornerRadius)
+            )
             .glassEffect(
-                .regular.interactive(),
+                .regular
+                    .tint(
+                        Color(red: 0.018, green: 0.035, blue: 0.068)
+                    )
+                    .interactive(),
                 in: .rect(cornerRadius: glassCornerRadius)
             )
             .glassEffectID(store.shelf.id, in: glassNamespace)
+            .shadow(color: .black.opacity(0.30), radius: 10, y: 6)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(10)
+        .environment(\.colorScheme, .dark)
+        .overlay {
+            if colorSchemeContrast == .increased {
+                RoundedRectangle(
+                    cornerRadius: glassCornerRadius,
+                    style: .continuous
+                )
+                .stroke(.white.opacity(0.46), lineWidth: 1.25)
+                .padding(10)
+                .allowsHitTesting(false)
+            }
+        }
         .overlay {
             if store.isReceivingDrop {
                 RoundedRectangle(
@@ -116,7 +143,9 @@ struct ShelfView: View {
             44
         case .docked:
             20
-        case .compact, .detail, .instantActions:
+        case .compact, .instantActions:
+            30
+        case .detail:
             26
         }
     }
@@ -131,6 +160,13 @@ private struct EmptyShelfView: View {
                 .font(.system(size: 27, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
 
+            Capsule()
+                .fill(.secondary.opacity(0.52))
+                .frame(width: 36, height: 5)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .padding(.top, 10)
+                .accessibilityHidden(true)
+
             VStack {
                 HStack {
                     Button(action: onClose) {
@@ -139,6 +175,7 @@ private struct EmptyShelfView: View {
                             .frame(width: 28, height: 28)
                     }
                     .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
                     .help("Close Shelf")
                     .accessibilityLabel("Close Shelf")
 
@@ -152,122 +189,6 @@ private struct EmptyShelfView: View {
         .contentShape(.rect(cornerRadius: 44))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Empty MDrop Shelf")
-    }
-}
-
-private struct CompactShelfView: View {
-    @Bindable var store: ShelfStore
-    let onExpand: () -> Void
-    let onDock: () -> Void
-    let onAction: (BuiltinActionID) -> Void
-    let onChange: () -> Void
-    let onClose: () -> Void
-    @State private var instantSettings = InstantActionSettings.shared
-
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                }
-                .buttonStyle(.plain)
-                .help("Close Shelf")
-
-                Button(action: onExpand) {
-                    HStack(spacing: 5) {
-                        Text(title)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                    }
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Menu {
-                    Button("Dock Shelf", systemImage: "sidebar.left", action: onDock)
-                    Button(store.shelf.isPinned ? "Unpin Shelf" : "Pin Shelf", systemImage: "pin") {
-                        store.shelf.isPinned.toggle()
-                        onChange()
-                    }
-                    Divider()
-                    Button("Close Shelf", systemImage: "xmark", action: onClose)
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-            }
-            .font(.system(size: 12, weight: .semibold))
-
-            HStack(spacing: -9) {
-                ForEach(Array(store.shelf.items.prefix(5))) { item in
-                    ShelfItemIcon(item: item, size: 54)
-                        .onDrag { makeItemProvider(for: item) }
-                }
-                if store.shelf.items.count > 5 {
-                    Text("+\(store.shelf.items.count - 5)")
-                        .font(.caption.bold())
-                        .padding(7)
-                        .glassEffect(.regular, in: .circle)
-                    }
-                Spacer(minLength: 0)
-            }
-
-            if store.showsInstantActions, !instantActions.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(instantActions, id: \.rawValue) { action in
-                        instantButton(action)
-                    }
-                    Button {
-                        withAnimation(.snappy) {
-                            store.showsInstantActions = false
-                        }
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .buttonStyle(.glass)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else {
-                Button {
-                    withAnimation(.snappy) {
-                        store.showsInstantActions.toggle()
-                    }
-                } label: {
-                    Image(systemName: "bolt.fill")
-                }
-                .buttonStyle(.glass)
-                .help("Instant Actions")
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(.rect)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Shelf \(title)")
-    }
-
-    private func instantButton(_ action: BuiltinActionID) -> some View {
-        Button {
-            onAction(action)
-        } label: {
-            Image(systemName: action.symbolName)
-        }
-        .buttonStyle(.glass)
-        .help(action.displayTitle)
-    }
-
-    private var instantActions: [BuiltinActionID] {
-        instantSettings.configuration.availableActions(for: store.shelf.items)
-    }
-
-    private var title: String {
-        if !store.shelf.name.isEmpty { return store.shelf.name }
-        return store.shelf.items.isEmpty
-            ? String(localized: "New Shelf")
-            : String(localized: "\(store.shelf.items.count) Items")
     }
 }
 
@@ -611,7 +532,7 @@ private struct ShelfItemIcon: View {
     }
 }
 
-private func makeItemProvider(for item: ShelfItemRecord) -> NSItemProvider {
+func makeItemProvider(for item: ShelfItemRecord) -> NSItemProvider {
     switch item.payload {
     case .file:
         guard let url = item.fileURL else { return NSItemProvider() }

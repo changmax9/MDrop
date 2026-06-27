@@ -59,7 +59,6 @@ final class ShelfPanelController {
     private let quickLookController = QuickLookController()
     private var keyMonitor: Any?
     private let emptySize = NSSize(width: 396, height: 414)
-    private let compactSize = NSSize(width: 300, height: 146)
     private let detailSize = NSSize(width: 430, height: 440)
     private let dockedSize = NSSize(width: 92, height: 250)
 
@@ -76,7 +75,7 @@ final class ShelfPanelController {
         let size = Self.size(
             for: shelf.presentationState,
             empty: emptySize,
-            compact: compactSize,
+            compact: Self.compactSize(itemCount: shelf.items.count),
             detail: detailSize,
             docked: dockedSize
         )
@@ -91,6 +90,8 @@ final class ShelfPanelController {
             store: store,
             onToggleDetail: {},
             onDock: {},
+            onQuickLook: {},
+            onAddClipboard: {},
             onAction: { _ in },
             onPreset: { _ in },
             onScript: { _ in },
@@ -114,6 +115,7 @@ final class ShelfPanelController {
             hostingView.bottomAnchor.constraint(equalTo: dropContainer.bottomAnchor)
         ])
         panel.contentView = dropContainer
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
@@ -129,6 +131,10 @@ final class ShelfPanelController {
             store: store,
             onToggleDetail: { [weak self] in self?.toggleDetail() },
             onDock: { [weak self] in self?.toggleDock() },
+            onQuickLook: { [weak self] in self?.quickLookSelectedItems() },
+            onAddClipboard: {
+                onDrop(PasteboardReader.representations(from: .general))
+            },
             onAction: { [weak self] action in self?.run(action) },
             onPreset: { [weak self] preset in self?.run(preset) },
             onScript: { [weak self] script in self?.run(script) },
@@ -155,7 +161,7 @@ final class ShelfPanelController {
         resize(to: Self.size(
             for: store.shelf.presentationState,
             empty: emptySize,
-            compact: compactSize,
+            compact: Self.compactSize(itemCount: store.shelf.items.count),
             detail: detailSize,
             docked: dockedSize
         ))
@@ -195,6 +201,15 @@ final class ShelfPanelController {
             onChange: onChange,
             onClose: onClose
         )
+    }
+
+    private func quickLookSelectedItems() {
+        let items = store.selectedItemIDs.isEmpty
+            ? store.shelf.items
+            : store.shelf.items.filter {
+                store.selectedItemIDs.contains($0.id)
+            }
+        quickLookController.show(items.compactMap(\.fileURL))
     }
 
     private func installKeyMonitor(onClose: @escaping () -> Void) {
@@ -292,5 +307,10 @@ final class ShelfPanelController {
         case .compact, .instantActions:
             compact
         }
+    }
+
+    private static func compactSize(itemCount: Int) -> NSSize {
+        let metrics = CompactShelfLayout.panelMetrics(itemCount: itemCount)
+        return NSSize(width: metrics.width, height: metrics.height)
     }
 }
