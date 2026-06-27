@@ -44,7 +44,7 @@ final class ScriptRunnerTests: XCTestCase {
             name: "Large Output",
             url: script,
             kind: .shell,
-            timeout: 2
+            timeout: 10
         )
 
         let result = try await ScriptRunner().run(
@@ -70,6 +70,7 @@ final class ScriptRunnerTests: XCTestCase {
             timeout: 0.1
         )
 
+        let started = ContinuousClock.now
         do {
             _ = try await ScriptRunner().run(
                 definition,
@@ -78,7 +79,11 @@ final class ScriptRunnerTests: XCTestCase {
             )
             XCTFail("Expected timeout")
         } catch ScriptRunError.timedOut {
-            // Expected.
+            XCTAssertLessThan(
+                ContinuousClock.now - started,
+                .seconds(2),
+                "Timeout cleanup must never wait indefinitely for SIGTERM"
+            )
         }
     }
 

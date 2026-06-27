@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public enum ScriptKind: String, Codable, CaseIterable, Sendable {
@@ -115,18 +116,18 @@ public actor ScriptRunner {
         do {
             while process.isRunning {
                 try Task.checkCancellation()
+                if cancelledRuns.contains(runID) {
+                    await stop(process)
+                    throw ScriptRunError.cancelled
+                }
                 if Date().timeIntervalSince(started) >= definition.timeout {
-                    process.terminate()
-                    process.waitUntilExit()
+                    await stop(process)
                     throw ScriptRunError.timedOut
                 }
                 try await Task.sleep(for: .milliseconds(20))
             }
         } catch is CancellationError {
-            if process.isRunning {
-                process.terminate()
-                process.waitUntilExit()
-            }
+            await stop(process)
             throw ScriptRunError.cancelled
         }
 
@@ -162,6 +163,29 @@ public actor ScriptRunner {
     public func cancel(_ runID: UUID) {
         cancelledRuns.insert(runID)
         processes[runID]?.terminate()
+    }
+
+    private func stop(_ process: Process) async {
+        guard process.isRunning else { return }
+
+        process.terminate()
+        if await waitForExit(process, timeout: .milliseconds(250)) {
+            return
+        }
+
+        Darwin.kill(process.processIdentifier, SIGKILL)
+        _ = await waitForExit(process, timeout: .seconds(1))
+    }
+
+    private func waitForExit(
+        _ process: Process,
+        timeout: Duration
+    ) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while process.isRunning, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return !process.isRunning
     }
 
     private func configuredProcess(
