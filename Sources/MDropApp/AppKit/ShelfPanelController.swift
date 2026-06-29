@@ -1,5 +1,6 @@
 import AppKit
 import MDropCore
+import QuartzCore
 import SwiftUI
 
 final class ShelfPanel: NSPanel {
@@ -58,7 +59,11 @@ final class ShelfPanelController {
     private let actionController = ShelfActionController()
     private let quickLookController = QuickLookController()
     private var keyMonitor: Any?
-    private let emptySize = NSSize(width: 396, height: 414)
+    private var closeWorkItem: DispatchWorkItem?
+    private let emptySize = NSSize(
+        width: CGFloat(ShelfMotionProfile.reference.emptyPanel.width),
+        height: CGFloat(ShelfMotionProfile.reference.emptyPanel.height)
+    )
     private let detailSize = NSSize(width: 430, height: 440)
     private let dockedSize = NSSize(width: 92, height: 250)
 
@@ -124,7 +129,7 @@ final class ShelfPanelController {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isMovableByWindowBackground = true
-        panel.animationBehavior = .utilityWindow
+        panel.animationBehavior = .none
         position(at: location ?? NSEvent.mouseLocation)
 
         hostingView.rootView = ShelfView(
@@ -139,9 +144,9 @@ final class ShelfPanelController {
             onPreset: { [weak self] preset in self?.run(preset) },
             onScript: { [weak self] script in self?.run(script) },
             onChange: onChange,
-            onClose: onClose
+            onClose: { [weak self] in self?.requestClose() }
         )
-        installKeyMonitor(onClose: onClose)
+        installKeyMonitor()
     }
 
     func show() {
@@ -149,6 +154,8 @@ final class ShelfPanelController {
     }
 
     func close() {
+        closeWorkItem?.cancel()
+        closeWorkItem = nil
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
@@ -180,7 +187,7 @@ final class ShelfPanelController {
             store: store,
             panel: panel,
             onChange: onChange,
-            onClose: onClose
+            onClose: { [weak self] in self?.requestClose() }
         )
     }
 
@@ -190,7 +197,7 @@ final class ShelfPanelController {
             store: store,
             panel: panel,
             onChange: onChange,
-            onClose: onClose
+            onClose: { [weak self] in self?.requestClose() }
         )
     }
 
@@ -199,7 +206,24 @@ final class ShelfPanelController {
             script,
             store: store,
             onChange: onChange,
-            onClose: onClose
+            onClose: { [weak self] in self?.requestClose() }
+        )
+    }
+
+    private func requestClose() {
+        guard !store.isClosing else { return }
+        store.isClosing = true
+
+        let delay = reduceMotion
+            ? 0
+            : ShelfMotionProfile.reference.closeDuration
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.onClose()
+        }
+        closeWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + delay,
+            execute: workItem
         )
     }
 
@@ -212,7 +236,7 @@ final class ShelfPanelController {
         quickLookController.show(items.compactMap(\.fileURL))
     }
 
-    private func installKeyMonitor(onClose: @escaping () -> Void) {
+    private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
             [weak self] event in
             guard let self, event.window === panel else { return event }
@@ -222,7 +246,7 @@ final class ShelfPanelController {
                 store.isCommandBarPresented.toggle()
                 return nil
             case ("w", true):
-                onClose()
+                requestClose()
                 return nil
             case ("\u{1b}", _):
                 store.isCommandBarPresented = false
@@ -273,12 +297,23 @@ final class ShelfPanelController {
         var frame = panel.frame
         frame.origin.y += frame.height - size.height
         frame.size = size
-        let appReducedMotion = UserDefaults.standard.bool(forKey: "reduceShelfMotion")
-        panel.setFrame(
-            frame,
-            display: true,
-            animate: !appReducedMotion && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        )
+
+        guard !reduceMotion else {
+            panel.setFrame(frame, display: true)
+            return
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration =
+                ShelfMotionProfile.reference.frameMorphDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().setFrame(frame, display: true)
+        }
+    }
+
+    private var reduceMotion: Bool {
+        UserDefaults.standard.bool(forKey: "reduceShelfMotion")
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
     private func position(at point: CGPoint) {

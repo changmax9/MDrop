@@ -186,6 +186,10 @@ struct CompactStackedShelfView: View {
     }
 
     private var stackAnimation: Animation {
-        reduceMotion ? .linear(duration: 0.12) : .snappy(duration: 0.32)
+        reduceMotion
+            ? .linear(duration: 0.12)
+            : .snappy(
+                duration: ShelfMotionProfile.reference.stackDuration
+            )
     }
 }
