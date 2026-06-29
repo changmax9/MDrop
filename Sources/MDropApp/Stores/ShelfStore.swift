@@ -13,6 +13,7 @@ final class ShelfStore {
     var showsInstantActions = false
     var actionProgress: Double?
     var errorMessage: String?
+    var isClosing = false
     @ObservationIgnored var cancelAction: (() -> Void)?
 
     init(shelf: ShelfRecord) {

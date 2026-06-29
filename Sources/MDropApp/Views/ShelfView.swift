@@ -15,6 +15,9 @@ struct ShelfView: View {
     let onClose: () -> Void
     @Namespace private var glassNamespace
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
+    @State private var hasAppeared = false
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -22,7 +25,11 @@ struct ShelfView: View {
                 switch store.shelf.presentationState {
                 case .empty:
                     EmptyShelfView(
+                        isReceivingDrop: store.isReceivingDrop,
                         onClose: onClose
+                    )
+                    .transition(
+                        .opacity.combined(with: .scale(scale: 0.985))
                     )
                 case .detail:
                     ShelfDetailView(
@@ -52,6 +59,9 @@ struct ShelfView: View {
                         onChange: onChange,
                         onClose: onClose
                     )
+                    .transition(
+                        .opacity.combined(with: .scale(scale: 0.985))
+                    )
                 }
             }
             .background(
@@ -74,6 +84,38 @@ struct ShelfView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(10)
         .environment(\.colorScheme, .dark)
+        .opacity(store.isClosing ? 0 : (hasAppeared ? 1 : 0))
+        .scaleEffect(contentScale)
+        .onAppear {
+            let duration = reduceMotion
+                ? 0
+                : ShelfMotionProfile.reference.appearanceDuration
+            withAnimation(.easeOut(duration: duration)) {
+                hasAppeared = true
+            }
+        }
+        .animation(
+            reduceMotion
+                ? .linear(duration: 0.01)
+                : .snappy(
+                    duration: ShelfMotionProfile.reference.stackDuration
+                ),
+            value: store.shelf.presentationState
+        )
+        .animation(
+            reduceMotion
+                ? .linear(duration: 0.01)
+                : .easeOut(
+                    duration: ShelfMotionProfile.reference.closeDuration
+                ),
+            value: store.isClosing
+        )
+        .animation(
+            reduceMotion
+                ? .linear(duration: 0.01)
+                : .easeOut(duration: 0.12),
+            value: store.isReceivingDrop
+        )
         .overlay {
             if colorSchemeContrast == .increased {
                 RoundedRectangle(
@@ -91,7 +133,7 @@ struct ShelfView: View {
                     cornerRadius: glassCornerRadius,
                     style: .continuous
                 )
-                    .stroke(.tint, style: StrokeStyle(lineWidth: 3, dash: [7, 5]))
+                    .stroke(.white.opacity(0.18), lineWidth: 1)
                     .padding(11)
                     .allowsHitTesting(false)
             }
@@ -137,10 +179,28 @@ struct ShelfView: View {
         }
     }
 
+    private var reduceMotion: Bool {
+        reduceShelfMotion
+            || systemReduceMotion
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    private var contentScale: CGFloat {
+        let lifecycleScale: CGFloat
+        if store.isClosing || !hasAppeared {
+            lifecycleScale = reduceMotion ? 1 : 0.985
+        } else {
+            lifecycleScale = 1
+        }
+        let targetingScale: CGFloat =
+            store.isReceivingDrop && !reduceMotion ? 1.006 : 1
+        return lifecycleScale * targetingScale
+    }
+
     private var glassCornerRadius: CGFloat {
         switch store.shelf.presentationState {
         case .empty:
-            44
+            ShelfMotionProfile.reference.emptyCornerRadius
         case .docked:
             20
         case .compact, .instantActions:
@@ -152,14 +212,49 @@ struct ShelfView: View {
 }
 
 private struct EmptyShelfView: View {
+    let isReceivingDrop: Bool
     let onClose: () -> Void
+    @State private var isHovering = false
 
     var body: some View {
         ZStack {
             Text("Drop files here")
-                .font(.system(size: 27, weight: .medium, design: .rounded))
+                .font(
+                    .system(
+                        size: ShelfMotionProfile.reference.emptyLabelPointSize,
+                        weight: .medium,
+                        design: .rounded
+                    )
+                )
                 .foregroundStyle(.secondary)
 
+            emptyChrome
+                .opacity(showsChrome ? 1 : 0)
+                .scaleEffect(showsChrome ? 1 : 0.92)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(
+            .rect(
+                cornerRadius:
+                    ShelfMotionProfile.reference.emptyCornerRadius
+            )
+        )
+        .onHover { hovering in
+            withAnimation(
+                .easeOut(
+                    duration:
+                        ShelfMotionProfile.reference.hoverChromeDuration
+                )
+            ) {
+                isHovering = hovering
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Empty MDrop Shelf")
+    }
+
+    private var emptyChrome: some View {
+        ZStack {
             Capsule()
                 .fill(.secondary.opacity(0.52))
                 .frame(width: 36, height: 5)
@@ -173,7 +268,10 @@ private struct EmptyShelfView: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 13, weight: .bold))
                             .frame(width: 28, height: 28)
-                            .background(.white.opacity(0.09), in: .circle)
+                            .background(
+                                .white.opacity(0.09),
+                                in: .circle
+                            )
                     }
                     .buttonStyle(.glass)
                     .buttonBorderShape(.circle)
@@ -186,10 +284,10 @@ private struct EmptyShelfView: View {
             }
             .padding(18)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(.rect(cornerRadius: 44))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Empty MDrop Shelf")
+    }
+
+    private var showsChrome: Bool {
+        isHovering && !isReceivingDrop
     }
 }
 
