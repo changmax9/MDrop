@@ -17,71 +17,46 @@ struct ShelfView: View {
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
-    @State private var hasAppeared = false
+    @State private var hasStartedEntrance = false
+    @State private var surfaceScaleX: CGFloat = 0.18
+    @State private var surfaceScaleY: CGFloat = 0.12
+    @State private var surfaceOpacity: CGFloat = 0
+    @State private var entranceCornerRadius: CGFloat = 44
+    @State private var entranceContentOpacity: CGFloat = 0
+    @State private var entranceContentScale: CGFloat = 0.96
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
-            Group {
-                switch store.shelf.presentationState {
-                case .empty:
-                    EmptyShelfView(
-                        store: store,
-                        isReceivingDrop: store.isReceivingDrop,
-                        onClose: onClose
+            ZStack {
+                Color.clear
+                    .contentShape(
+                        .rect(cornerRadius: animatedCornerRadius)
                     )
-                    .transition(
-                        .opacity.combined(with: .scale(scale: 0.985))
+                    .glassEffect(
+                        .clear,
+                        in: .rect(cornerRadius: animatedCornerRadius)
                     )
-                case .detail:
-                    ShelfDetailView(
-                        store: store,
-                        onCollapse: onToggleDetail,
-                        onDock: onDock,
-                        onAction: onAction,
-                        onPreset: onPreset,
-                        onScript: onScript,
-                        onChange: onChange,
-                        onClose: onClose
+                    .glassEffectID(
+                        store.shelf.id,
+                        in: glassNamespace
                     )
-                case .docked:
-                    DockedShelfView(
-                        store: store,
-                        onUndock: onDock,
-                        onClose: onClose
+                    .scaleEffect(
+                        x: resolvedSurfaceScaleX,
+                        y: resolvedSurfaceScaleY
                     )
-                case .compact, .instantActions:
-                    CompactStackedShelfView(
-                        store: store,
-                        onExpand: onToggleDetail,
-                        onDock: onDock,
-                        onQuickLook: onQuickLook,
-                        onAddClipboard: onAddClipboard,
-                        onAction: onAction,
-                        onChange: onChange,
-                        onClose: onClose
-                    )
-                    .transition(
-                        .opacity.combined(with: .scale(scale: 0.985))
-                    )
-                }
+                    .opacity(resolvedSurfaceOpacity)
+
+                shelfContent
+                    .opacity(resolvedContentOpacity)
+                    .scaleEffect(resolvedContentScale)
             }
-            .glassEffect(
-                .clear,
-                in: .rect(cornerRadius: glassCornerRadius)
-            )
-            .glassEffectID(store.shelf.id, in: glassNamespace)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .opacity(store.isClosing ? 0 : (hasAppeared ? 1 : 0))
-        .scaleEffect(contentScale)
-        .onAppear {
-            let duration = reduceMotion
-                ? 0
-                : ShelfMotionProfile.reference.appearanceDuration
-            withAnimation(.easeOut(duration: duration)) {
-                hasAppeared = true
-            }
+        .opacity(store.isClosing ? 0 : 1)
+        .scaleEffect(targetingScale)
+        .task {
+            await runEntrance()
         }
         .animation(
             reduceMotion
@@ -107,30 +82,45 @@ struct ShelfView: View {
         )
         .overlay {
             RoundedRectangle(
-                cornerRadius: glassCornerRadius,
+                cornerRadius: animatedCornerRadius,
                 style: .continuous
             )
             .stroke(.primary.opacity(0.16), lineWidth: 0.6)
+            .scaleEffect(
+                x: resolvedSurfaceScaleX,
+                y: resolvedSurfaceScaleY
+            )
+            .opacity(resolvedSurfaceOpacity)
             .allowsHitTesting(false)
         }
         .overlay {
             if colorSchemeContrast == .increased {
                 RoundedRectangle(
-                    cornerRadius: glassCornerRadius,
+                    cornerRadius: animatedCornerRadius,
                     style: .continuous
                 )
                 .stroke(.white.opacity(0.46), lineWidth: 1.25)
+                .scaleEffect(
+                    x: resolvedSurfaceScaleX,
+                    y: resolvedSurfaceScaleY
+                )
+                .opacity(resolvedSurfaceOpacity)
                 .allowsHitTesting(false)
             }
         }
         .overlay {
             if store.isReceivingDrop {
                 RoundedRectangle(
-                    cornerRadius: glassCornerRadius,
+                    cornerRadius: animatedCornerRadius,
                     style: .continuous
                 )
                     .stroke(.white.opacity(0.18), lineWidth: 1)
                     .padding(1)
+                    .scaleEffect(
+                        x: resolvedSurfaceScaleX,
+                        y: resolvedSurfaceScaleY
+                    )
+                    .opacity(resolvedSurfaceOpacity)
                     .allowsHitTesting(false)
             }
         }
@@ -175,22 +165,160 @@ struct ShelfView: View {
         }
     }
 
+    @ViewBuilder
+    private var shelfContent: some View {
+        switch store.shelf.presentationState {
+        case .empty:
+            EmptyShelfView(
+                store: store,
+                isReceivingDrop: store.isReceivingDrop,
+                onClose: onClose
+            )
+            .transition(
+                .opacity.combined(with: .scale(scale: 0.985))
+            )
+        case .detail:
+            ShelfDetailView(
+                store: store,
+                onCollapse: onToggleDetail,
+                onDock: onDock,
+                onAction: onAction,
+                onPreset: onPreset,
+                onScript: onScript,
+                onChange: onChange,
+                onClose: onClose
+            )
+        case .docked:
+            DockedShelfView(
+                store: store,
+                onUndock: onDock,
+                onClose: onClose
+            )
+        case .compact, .instantActions:
+            CompactStackedShelfView(
+                store: store,
+                onExpand: onToggleDetail,
+                onDock: onDock,
+                onQuickLook: onQuickLook,
+                onAddClipboard: onAddClipboard,
+                onAction: onAction,
+                onChange: onChange,
+                onClose: onClose
+            )
+            .transition(
+                .opacity.combined(with: .scale(scale: 0.985))
+            )
+        }
+    }
+
     private var reduceMotion: Bool {
         reduceShelfMotion
             || systemReduceMotion
             || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
-    private var contentScale: CGFloat {
-        let lifecycleScale: CGFloat
-        if store.isClosing || !hasAppeared {
-            lifecycleScale = reduceMotion ? 1 : 0.985
-        } else {
-            lifecycleScale = 1
+    private var targetingScale: CGFloat {
+        store.isReceivingDrop && !reduceMotion ? 1.006 : 1
+    }
+
+    private var resolvedSurfaceScaleX: CGFloat {
+        store.animatesInitialAppearance && !reduceMotion
+            ? surfaceScaleX
+            : 1
+    }
+
+    private var resolvedSurfaceScaleY: CGFloat {
+        store.animatesInitialAppearance && !reduceMotion
+            ? surfaceScaleY
+            : 1
+    }
+
+    private var resolvedSurfaceOpacity: CGFloat {
+        store.animatesInitialAppearance ? surfaceOpacity : 1
+    }
+
+    private var resolvedContentOpacity: CGFloat {
+        let entranceOpacity = store.animatesInitialAppearance
+            ? entranceContentOpacity
+            : 1
+        return entranceOpacity
+            * (store.isLayoutContentVisible ? 1 : 0)
+    }
+
+    private var resolvedContentScale: CGFloat {
+        store.animatesInitialAppearance
+            ? entranceContentScale
+            : 1
+    }
+
+    private var animatedCornerRadius: CGFloat {
+        store.animatesInitialAppearance && !reduceMotion
+            ? entranceCornerRadius
+            : glassCornerRadius
+    }
+
+    @MainActor
+    private func runEntrance() async {
+        guard !hasStartedEntrance else { return }
+        hasStartedEntrance = true
+
+        guard store.animatesInitialAppearance else {
+            surfaceScaleX = 1
+            surfaceScaleY = 1
+            surfaceOpacity = 1
+            entranceCornerRadius = glassCornerRadius
+            entranceContentOpacity = 1
+            entranceContentScale = 1
+            return
         }
-        let targetingScale: CGFloat =
-            store.isReceivingDrop && !reduceMotion ? 1.006 : 1
-        return lifecycleScale * targetingScale
+
+        await Task.yield()
+        if reduceMotion {
+            withAnimation(
+                .linear(
+                    duration:
+                        ShelfMotionProfile.reference.reducedMotionDuration
+                )
+            ) {
+                surfaceOpacity = 1
+                entranceContentOpacity = 1
+            }
+            surfaceScaleX = 1
+            surfaceScaleY = 1
+            entranceCornerRadius = glassCornerRadius
+            entranceContentScale = 1
+            return
+        }
+
+        withAnimation(
+            .spring(response: 0.30, dampingFraction: 0.82)
+        ) {
+            surfaceScaleX = 1
+            surfaceOpacity = 1
+            entranceCornerRadius = glassCornerRadius
+        }
+        withAnimation(
+            .spring(response: 0.42, dampingFraction: 0.72)
+        ) {
+            surfaceScaleY = 1
+        }
+
+        do {
+            try await Task.sleep(
+                for: .seconds(
+                    ShelfMotionProfile.reference.jellyContentDelay
+                )
+            )
+        } catch {
+            return
+        }
+        guard !Task.isCancelled else { return }
+        withAnimation(
+            .spring(response: 0.28, dampingFraction: 0.88)
+        ) {
+            entranceContentOpacity = 1
+            entranceContentScale = 1
+        }
     }
 
     private var glassCornerRadius: CGFloat {

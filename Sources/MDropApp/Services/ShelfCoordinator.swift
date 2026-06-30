@@ -17,7 +17,10 @@ final class ShelfCoordinator {
                 let archive = try await repository.load()
                 recent = archive.recent
                 for shelf in archive.visible {
-                    show(shelf)
+                    show(
+                        shelf,
+                        animatesInitialAppearance: false
+                    )
                 }
             } catch {
                 presentError(error)
@@ -187,7 +190,11 @@ final class ShelfCoordinator {
         }
     }
 
-    private func show(_ shelf: ShelfRecord, at point: CGPoint? = nil) {
+    private func show(
+        _ shelf: ShelfRecord,
+        at point: CGPoint? = nil,
+        animatesInitialAppearance: Bool = true
+    ) {
         if let existing = panels[shelf.id] {
             existing.panel.orderFrontRegardless()
             return
@@ -195,6 +202,7 @@ final class ShelfCoordinator {
         let panel = ShelfPanelController(
             shelf: shelf,
             location: point,
+            animatesInitialAppearance: animatesInitialAppearance,
             onDrop: { [weak self] representations in
                 self?.receive(representations, into: shelf.id)
             },

@@ -147,11 +147,15 @@ final class ShelfPanelController {
     init(
         shelf: ShelfRecord,
         location: CGPoint?,
+        animatesInitialAppearance: Bool,
         onDrop: @escaping ([DropRepresentation]) -> Void,
         onChange: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
-        store = ShelfStore(shelf: shelf)
+        store = ShelfStore(
+            shelf: shelf,
+            animatesInitialAppearance: animatesInitialAppearance
+        )
         self.onChange = onChange
         self.onClose = onClose
         let size = Self.size(
