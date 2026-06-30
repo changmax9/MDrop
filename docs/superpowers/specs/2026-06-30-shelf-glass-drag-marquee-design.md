@@ -3,8 +3,8 @@
 ## Goal
 
 Match the supplied Dropover reference for compact Shelf glass, movement, handle
-motion, filename behavior, and adaptive light/dark controls without regressing
-file drag-out.
+motion, filename behavior, center-origin entrance, compact-to-detail morph, and
+adaptive light/dark controls without regressing file drag-out.
 
 ## Surface
 
@@ -58,6 +58,44 @@ file drag-out.
 - The chevron stays fixed; only the filename text moves inside a clipped region.
 - Reduce Motion disables continuous travel and falls back to middle truncation.
 
+## Jelly Glass Entrance
+
+- A Shelf created by shake activation starts as a small, translucent glass blob
+  at the final Shelf center. The panel frame is already at its final size, so
+  the animation does not visibly jump or move the center.
+- The blob begins at 18% horizontal scale, 12% vertical scale, 0 opacity, and a
+  44 pt corner radius. Its content remains hidden during the first expansion.
+- The glass surface expands with separate axes: horizontal scale reaches its
+  target slightly before vertical scale, vertical scale overshoots to 104%, and
+  both settle at 100%. This reproduces the soft jelly stretch visible in the
+  first supplied recording without distorting the file thumbnail.
+- The surface animation takes 420 ms using a highly responsive, damped spring.
+  Controls and item content fade and scale from 96% beginning
+  90 ms after the surface starts, then settle without a second bounce.
+- Newly created shelves use this entrance. Shelves restored when MDrop launches
+  appear immediately so relaunching never produces a burst of animations.
+- Reduce Motion replaces the jelly expansion with a 160 ms opacity transition.
+
+## Compact-to-Detail Morph
+
+- Pressing the bottom filename capsule changes the same Shelf from the
+  198 × 207 pt compact card into a 430 × 180 pt horizontal detail card. The
+  card remains centered on its previous center while the panel frame and clear
+  glass mask animate together.
+- The compact thumbnail, top controls, and filename capsule fade to 0 in the
+  first 110 ms. The surface expands horizontally and contracts vertically with
+  a 360 ms damped spring; no second window or rectangular backing may flash.
+- Detail content fades in after 120 ms. It matches the second supplied
+  recording: a circular back control and “1 Document”/size summary at top left,
+  view/customize controls at top right, the file item below, and a
+  “Reveal in Finder” action beside it.
+- The back control performs the inverse morph and restores the compact layout,
+  including the previous item stack and filename marquee state.
+- File count, size summary, title pluralization, and item rendering are driven
+  by the live Shelf model. There is no Pro badge, trial timer, or gated state.
+- Reduce Motion changes the panel size without overshoot and crossfades the two
+  layouts in 160 ms.
+
 ## Validation
 
 - Unit-test marquee overflow distance, travel duration, and no-overflow behavior.
@@ -67,4 +105,10 @@ file drag-out.
   frame is unchanged and no duplicate item is added.
 - Drag the Shelf from multiple blank regions and confirm buttons, filename, and
   thumbnail keep their original interactions.
+- Trigger a new Shelf by shaking a dragged file and compare center anchoring,
+  horizontal/vertical expansion order, overshoot, and content delay against the
+  first supplied recording.
+- Press the filename capsule and back control repeatedly and confirm the panel
+  stays center-anchored, the compact and detail layouts never overlap at full
+  opacity, and Finder drag-out still works in both layouts.
 - Click the final Release Shelf and confirm no rectangular background appears.
