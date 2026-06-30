@@ -7,13 +7,13 @@ struct ShelfMotionProfileTests {
     func emptyPanelMatchesMeasuredReferenceSurface() {
         #expect(
             ShelfMotionProfile.reference.emptyPanel
-                == .init(width: 382, height: 400)
+                == .init(width: 198, height: 207)
         )
         #expect(
             ShelfMotionProfile.reference.emptyGlassBody
-                == .init(width: 362, height: 380)
+                == .init(width: 198, height: 207)
         )
-        #expect(ShelfMotionProfile.reference.emptyCornerRadius == 36)
+        #expect(ShelfMotionProfile.reference.emptyCornerRadius == 28)
         #expect(ShelfMotionProfile.reference.emptyLabelPointSize == 15)
     }
 

@@ -5,11 +5,11 @@ final class CompactShelfLayoutTests: XCTestCase {
     func testPopulatedCompactShelfUsesVerticalReferenceSize() {
         XCTAssertEqual(
             CompactShelfLayout.panelMetrics(itemCount: 1),
-            .init(width: 166, height: 164)
+            .init(width: 198, height: 207)
         )
         XCTAssertEqual(
             CompactShelfLayout.panelMetrics(itemCount: 8),
-            .init(width: 166, height: 164)
+            .init(width: 198, height: 207)
         )
     }
 

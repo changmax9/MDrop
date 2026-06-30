@@ -15,6 +15,8 @@ struct CompactStackedShelfView: View {
     @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var isHovering = false
+    @State private var draggedItemID: UUID?
+    @State private var dragResetTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -23,6 +25,7 @@ struct CompactStackedShelfView: View {
                 .frame(width: 34, height: 5)
                 .frame(maxHeight: .infinity, alignment: .top)
                 .padding(.top, 4)
+                .opacity(isDraggingItem ? 0.35 : 1)
                 .accessibilityHidden(true)
 
             HStack {
@@ -31,20 +34,21 @@ struct CompactStackedShelfView: View {
                 menuButton
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 1)
-            .padding(.top, 5)
+            .padding(.horizontal, 10)
+            .padding(.top, 10)
+            .opacity(isDraggingItem ? 0.22 : 1)
 
             thumbnailStack
-                .offset(y: -1)
 
             detailButton
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, 8)
-                .padding(.bottom, 5)
+                .padding(.bottom, 10)
+                .opacity(isDraggingItem ? 0.22 : 1)
         }
         .padding(5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(.rect(cornerRadius: 30))
+        .contentShape(.rect(cornerRadius: 28))
         .contextMenu {
             ShelfMenuContent(
                 store: store,
@@ -55,12 +59,21 @@ struct CompactStackedShelfView: View {
                 onChange: onChange
             )
         }
-        .onHover { isHovering = $0 }
+        .onHover { hovering in
+            withAnimation(hoverAnimation) {
+                isHovering = hovering
+            }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             "\(store.shelf.items.count) items, \(store.shelf.items.last?.displayName ?? "")"
         )
         .animation(stackAnimation, value: store.shelf.items)
+        .animation(dragChromeAnimation, value: draggedItemID)
+        .onDisappear {
+            dragResetTask?.cancel()
+            dragResetTask = nil
+        }
     }
 
     private var closeButton: some View {
@@ -114,12 +127,18 @@ struct CompactStackedShelfView: View {
                     .offset(x: transform.x, y: transform.y)
                     .rotationEffect(.degrees(transform.rotationDegrees))
                     .scaleEffect(transform.scale)
+                    .opacity(draggedItemID == item.id ? 0 : 1)
                     .zIndex(Double(index))
-                    .onDrag { makeItemProvider(for: item) }
+                    .onDrag {
+                        beginDragging(item)
+                        return makeItemProvider(for: item)
+                    } preview: {
+                        dragPreview(item)
+                    }
             }
         }
         .frame(width: 92, height: 104)
-        .offset(y: 4)
+        .offset(y: -8)
     }
 
     private func thumbnailCard(_ item: ShelfItemRecord) -> some View {
@@ -128,10 +147,40 @@ struct CompactStackedShelfView: View {
             size: CGSize(width: 78, height: 94)
         )
         .shadow(
-            color: .black.opacity(isHovering ? 0.42 : 0.30),
-            radius: isHovering ? 8 : 5,
-            y: 4
+            color: .black.opacity(isHovering ? 0.26 : 0.18),
+            radius: isHovering ? 9 : 5,
+            y: isHovering ? 5 : 3
         )
+        .scaleEffect(isHovering ? 1.012 : 1)
+        .offset(y: isHovering ? -1 : 0)
+        .animation(hoverAnimation, value: isHovering)
+    }
+
+    private func dragPreview(_ item: ShelfItemRecord) -> some View {
+        ShelfThumbnailView(
+            item: item,
+            size: CGSize(width: 96, height: 116)
+        )
+        .shadow(color: .black.opacity(0.28), radius: 10, y: 6)
+    }
+
+    private var isDraggingItem: Bool {
+        draggedItemID != nil
+    }
+
+    private func beginDragging(_ item: ShelfItemRecord) {
+        draggedItemID = item.id
+        dragResetTask?.cancel()
+        dragResetTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(90))
+            while !Task.isCancelled,
+                  NSEvent.pressedMouseButtons & 1 != 0 {
+                try? await Task.sleep(for: .milliseconds(34))
+            }
+            guard !Task.isCancelled else { return }
+            draggedItemID = nil
+            dragResetTask = nil
+        }
     }
 
     private var detailButton: some View {
@@ -191,5 +240,17 @@ struct CompactStackedShelfView: View {
             : .snappy(
                 duration: ShelfMotionProfile.reference.stackDuration
             )
+    }
+
+    private var dragChromeAnimation: Animation {
+        reduceMotion
+            ? .linear(duration: 0.08)
+            : .spring(response: 0.26, dampingFraction: 0.82)
+    }
+
+    private var hoverAnimation: Animation {
+        reduceMotion
+            ? .linear(duration: 0.08)
+            : .spring(response: 0.22, dampingFraction: 0.88)
     }
 }

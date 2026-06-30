@@ -120,7 +120,7 @@ final class ShelfPanelController {
             hostingView.bottomAnchor.constraint(equalTo: dropContainer.bottomAnchor)
         ])
         panel.contentView = dropContainer
-        panel.appearance = NSAppearance(named: .darkAqua)
+        panel.appearance = nil
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false

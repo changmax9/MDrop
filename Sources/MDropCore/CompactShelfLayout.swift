@@ -31,7 +31,7 @@ public struct ShelfStackTransform: Equatable, Sendable {
 
 public enum CompactShelfLayout {
     public static func panelMetrics(itemCount: Int) -> ShelfPanelMetrics {
-        ShelfPanelMetrics(width: 166, height: 164)
+        ShelfPanelMetrics(width: 198, height: 207)
     }
 
     public static func transforms(

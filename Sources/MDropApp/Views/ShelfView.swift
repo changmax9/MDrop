@@ -64,26 +64,14 @@ struct ShelfView: View {
                     )
                 }
             }
-            .background(
-                Color(red: 0.018, green: 0.032, blue: 0.058)
-                    .opacity(0.84),
-                in: .rect(cornerRadius: glassCornerRadius)
-            )
             .glassEffect(
-                .regular
-                    .tint(
-                        Color(red: 0.018, green: 0.035, blue: 0.068)
-                    )
-                    .interactive(),
+                .regular.interactive(),
                 in: .rect(cornerRadius: glassCornerRadius)
             )
             .glassEffectID(store.shelf.id, in: glassNamespace)
-            .shadow(color: .black.opacity(0.30), radius: 10, y: 6)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(10)
-        .environment(\.colorScheme, .dark)
         .opacity(store.isClosing ? 0 : (hasAppeared ? 1 : 0))
         .scaleEffect(contentScale)
         .onAppear {
@@ -123,7 +111,6 @@ struct ShelfView: View {
                     style: .continuous
                 )
                 .stroke(.white.opacity(0.46), lineWidth: 1.25)
-                .padding(10)
                 .allowsHitTesting(false)
             }
         }
@@ -134,7 +121,7 @@ struct ShelfView: View {
                     style: .continuous
                 )
                     .stroke(.white.opacity(0.18), lineWidth: 1)
-                    .padding(11)
+                    .padding(1)
                     .allowsHitTesting(false)
             }
         }
@@ -204,7 +191,7 @@ struct ShelfView: View {
         case .docked:
             20
         case .compact, .instantActions:
-            30
+            28
         case .detail:
             26
         }
@@ -214,7 +201,6 @@ struct ShelfView: View {
 private struct EmptyShelfView: View {
     let isReceivingDrop: Bool
     let onClose: () -> Void
-    @State private var isHovering = false
 
     var body: some View {
         ZStack {
@@ -239,16 +225,6 @@ private struct EmptyShelfView: View {
                     ShelfMotionProfile.reference.emptyCornerRadius
             )
         )
-        .onHover { hovering in
-            withAnimation(
-                .easeOut(
-                    duration:
-                        ShelfMotionProfile.reference.hoverChromeDuration
-                )
-            ) {
-                isHovering = hovering
-            }
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Empty MDrop Shelf")
     }
@@ -287,7 +263,7 @@ private struct EmptyShelfView: View {
     }
 
     private var showsChrome: Bool {
-        isHovering && !isReceivingDrop
+        !isReceivingDrop
     }
 }
 

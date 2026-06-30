@@ -351,7 +351,7 @@ struct SettingsView: View {
                 Toggle("Reduce MDrop motion", isOn: $reduceShelfMotion)
             }
             Section("Glass") {
-                Text("Floating Shelves use dark Liquid Glass; settings follow the system appearance and accessibility preferences.")
+                Text("Floating Shelves use adaptive Liquid Glass and follow system appearance and accessibility preferences.")
                     .foregroundStyle(.secondary)
             }
 

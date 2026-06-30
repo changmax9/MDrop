@@ -34,9 +34,9 @@ public struct ShelfMotionProfile: Equatable, Sendable {
     }
 
     public static let reference = Self(
-        emptyPanel: .init(width: 382, height: 400),
-        emptyGlassBody: .init(width: 362, height: 380),
-        emptyCornerRadius: 36,
+        emptyPanel: .init(width: 198, height: 207),
+        emptyGlassBody: .init(width: 198, height: 207),
+        emptyCornerRadius: 28,
         emptyLabelPointSize: 15,
         appearanceDuration: 0.08,
         frameMorphDuration: 0.22,
