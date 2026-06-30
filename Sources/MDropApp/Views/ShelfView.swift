@@ -25,6 +25,7 @@ struct ShelfView: View {
                 switch store.shelf.presentationState {
                 case .empty:
                     EmptyShelfView(
+                        store: store,
                         isReceivingDrop: store.isReceivingDrop,
                         onClose: onClose
                     )
@@ -65,7 +66,7 @@ struct ShelfView: View {
                 }
             }
             .glassEffect(
-                .regular,
+                .clear,
                 in: .rect(cornerRadius: glassCornerRadius)
             )
             .glassEffectID(store.shelf.id, in: glassNamespace)
@@ -207,6 +208,7 @@ struct ShelfView: View {
 }
 
 private struct EmptyShelfView: View {
+    @Bindable var store: ShelfStore
     let isReceivingDrop: Bool
     let onClose: () -> Void
 
@@ -239,12 +241,9 @@ private struct EmptyShelfView: View {
 
     private var emptyChrome: some View {
         ZStack {
-            Capsule()
-                .fill(.secondary.opacity(0.52))
-                .frame(width: 20, height: 4)
+            ShelfDragHandle(store: store)
                 .frame(maxHeight: .infinity, alignment: .top)
                 .padding(.top, 8)
-                .accessibilityHidden(true)
 
             VStack {
                 HStack {
@@ -274,6 +273,7 @@ private struct EmptyShelfView: View {
 struct ShelfCircleControlLabel: View {
     let systemName: String
     var externallyHovered: Bool? = nil
+    @Environment(\.colorScheme) private var colorScheme
     @State private var internallyHovered = false
 
     var body: some View {
@@ -284,19 +284,19 @@ struct ShelfCircleControlLabel: View {
                     weight: .semibold
                 )
             )
-            .foregroundStyle(.black.opacity(0.76))
+            .foregroundStyle(iconColor)
             .frame(
                 width: ShelfMotionProfile.reference.controlDiameter,
                 height: ShelfMotionProfile.reference.controlDiameter
             )
             .background(
-                .black.opacity(0.055),
+                surfaceColor,
                 in: .circle
             )
             .glassEffect(.regular, in: .circle)
             .overlay {
                 Circle()
-                    .stroke(.black.opacity(0.07), lineWidth: 0.5)
+                    .stroke(outlineColor, lineWidth: 0.5)
                     .allowsHitTesting(false)
             }
             .shadow(
@@ -320,6 +320,59 @@ struct ShelfCircleControlLabel: View {
 
     private var isHovered: Bool {
         externallyHovered ?? internallyHovered
+    }
+
+    private var iconColor: Color {
+        colorScheme == .dark
+            ? .white.opacity(0.9)
+            : .black.opacity(0.76)
+    }
+
+    private var surfaceColor: Color {
+        colorScheme == .dark
+            ? .white.opacity(0.075)
+            : .black.opacity(0.055)
+    }
+
+    private var outlineColor: Color {
+        colorScheme == .dark
+            ? .white.opacity(0.11)
+            : .black.opacity(0.07)
+    }
+}
+
+struct ShelfDragHandle: View {
+    @Bindable var store: ShelfStore
+    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    var body: some View {
+        Capsule()
+            .fill(.secondary.opacity(0.55))
+            .frame(
+                width: store.isWindowDragging
+                    ? ShelfMotionProfile.reference.handleDraggingWidth
+                    : ShelfMotionProfile.reference.handleHoverWidth,
+                height: ShelfMotionProfile.reference.handleHeight
+            )
+            .opacity(
+                store.isShelfHovered || store.isWindowDragging ? 1 : 0
+            )
+            .animation(handleAnimation, value: store.isShelfHovered)
+            .animation(handleAnimation, value: store.isWindowDragging)
+            .accessibilityHidden(true)
+    }
+
+    private var handleAnimation: Animation {
+        reduceMotion
+            ? .linear(duration: 0.08)
+            : .spring(response: 0.24, dampingFraction: 0.84)
+    }
+
+    private var reduceMotion: Bool {
+        reduceShelfMotion
+            || systemReduceMotion
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 }
 

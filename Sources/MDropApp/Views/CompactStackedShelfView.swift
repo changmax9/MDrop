@@ -21,13 +21,9 @@ struct CompactStackedShelfView: View {
 
     var body: some View {
         ZStack {
-            Capsule()
-                .fill(.secondary.opacity(0.55))
-                .frame(width: 20, height: 4)
+            ShelfDragHandle(store: store)
                 .frame(maxHeight: .infinity, alignment: .top)
                 .padding(.top, 4)
-                .opacity(isDraggingItem ? 0.35 : 1)
-                .accessibilityHidden(true)
 
             HStack {
                 closeButton
@@ -203,10 +199,8 @@ struct CompactStackedShelfView: View {
     private var detailButton: some View {
         Button(action: onExpand) {
             HStack(spacing: 5) {
-                Text(label)
-                    .font(.system(size: 13, weight: .regular))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                ShelfMarqueeText(text: label)
+                    .frame(width: 96)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .bold))
             }
@@ -216,7 +210,7 @@ struct CompactStackedShelfView: View {
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: 126)
+        .frame(width: 126)
         .help("Show Shelf Details")
         .accessibilityLabel("Show Shelf Details, \(label)")
     }
