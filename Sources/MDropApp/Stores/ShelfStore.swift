@@ -14,10 +14,18 @@ final class ShelfStore {
     var actionProgress: Double?
     var errorMessage: String?
     var isClosing = false
+    var isShelfHovered = false
+    var isWindowDragging = false
+    var isLayoutContentVisible = true
+    let animatesInitialAppearance: Bool
     @ObservationIgnored var cancelAction: (() -> Void)?
 
-    init(shelf: ShelfRecord) {
+    init(
+        shelf: ShelfRecord,
+        animatesInitialAppearance: Bool = true
+    ) {
         self.shelf = shelf
+        self.animatesInitialAppearance = animatesInitialAppearance
     }
 
     func append(_ items: [ShelfItemRecord]) {

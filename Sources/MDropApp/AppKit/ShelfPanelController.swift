@@ -8,9 +8,28 @@ final class ShelfPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-final class ShelfWindowDragHandleView: NSView {
+final class ShelfWindowDragSurfaceView: NSView {
+    var layoutProvider: () -> ShelfDragLayout = {
+        ShelfDragLayout(interactiveRegions: [])
+    }
+    var onDraggingChanged: (Bool) -> Void = { _ in }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        switch NSApp.currentEvent?.type {
+        case .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp:
+            return nil
+        default:
+            break
+        }
+
+        let localPoint = convert(point, from: superview)
+        return layoutProvider().isInteractive(localPoint) ? nil : self
+    }
+
     override func mouseDown(with event: NSEvent) {
+        onDraggingChanged(true)
         window?.performDrag(with: event)
+        onDraggingChanged(false)
     }
 }
 
@@ -18,6 +37,8 @@ final class ShelfWindowDragHandleView: NSView {
 final class ShelfDropContainerView: NSView {
     var onDropTargeted: ((Bool) -> Void)?
     var onDrop: (([DropRepresentation]) -> Void)?
+    var onHoverChanged: ((Bool) -> Void)?
+    private var hoverTrackingArea: NSTrackingArea?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -27,6 +48,33 @@ final class ShelfDropContainerView: NSView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         configureDropDestination()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea {
+            removeTrackingArea(hoverTrackingArea)
+        }
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [
+                .mouseEnteredAndExited,
+                .activeAlways,
+                .inVisibleRect
+            ],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea)
+        hoverTrackingArea = trackingArea
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        onHoverChanged?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onHoverChanged?(false)
     }
 
     private func configureDropDestination() {
@@ -136,7 +184,7 @@ final class ShelfPanelController {
         let dropContainer = ShelfDropContainerView(
             frame: NSRect(origin: .zero, size: size)
         )
-        let dragHandle = ShelfWindowDragHandleView()
+        let dragSurface = ShelfWindowDragSurfaceView()
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         hostingView.layer?.isOpaque = false
@@ -146,12 +194,27 @@ final class ShelfPanelController {
         dropContainer.onDropTargeted = { [weak store] targeted in
             store?.isReceivingDrop = targeted
         }
+        dropContainer.onHoverChanged = { [weak store] hovering in
+            store?.isShelfHovered = hovering
+        }
         dropContainer.onDrop = onDrop
         hostingView.translatesAutoresizingMaskIntoConstraints = false
-        dragHandle.translatesAutoresizingMaskIntoConstraints = false
+        dragSurface.translatesAutoresizingMaskIntoConstraints = false
+        dragSurface.layoutProvider = { [weak store, weak dropContainer] in
+            guard let store, let dropContainer else {
+                return ShelfDragLayout(interactiveRegions: [])
+            }
+            return Self.dragLayout(
+                for: store.shelf.presentationState,
+                panelSize: dropContainer.bounds.size
+            )
+        }
+        dragSurface.onDraggingChanged = { [weak store] dragging in
+            store?.isWindowDragging = dragging
+        }
         dropContainer.addSubview(hostingView)
         dropContainer.addSubview(
-            dragHandle,
+            dragSurface,
             positioned: .above,
             relativeTo: hostingView
         )
@@ -160,10 +223,10 @@ final class ShelfPanelController {
             hostingView.trailingAnchor.constraint(equalTo: dropContainer.trailingAnchor),
             hostingView.topAnchor.constraint(equalTo: dropContainer.topAnchor),
             hostingView.bottomAnchor.constraint(equalTo: dropContainer.bottomAnchor),
-            dragHandle.centerXAnchor.constraint(equalTo: dropContainer.centerXAnchor),
-            dragHandle.topAnchor.constraint(equalTo: dropContainer.topAnchor),
-            dragHandle.widthAnchor.constraint(equalToConstant: 44),
-            dragHandle.heightAnchor.constraint(equalToConstant: 18)
+            dragSurface.leadingAnchor.constraint(equalTo: dropContainer.leadingAnchor),
+            dragSurface.trailingAnchor.constraint(equalTo: dropContainer.trailingAnchor),
+            dragSurface.topAnchor.constraint(equalTo: dropContainer.topAnchor),
+            dragSurface.bottomAnchor.constraint(equalTo: dropContainer.bottomAnchor)
         ])
         panel.contentView = dropContainer
         panel.appearance = nil
@@ -393,5 +456,21 @@ final class ShelfPanelController {
     private static func compactSize(itemCount: Int) -> NSSize {
         let metrics = CompactShelfLayout.panelMetrics(itemCount: itemCount)
         return NSSize(width: metrics.width, height: metrics.height)
+    }
+
+    private static func dragLayout(
+        for state: ShelfPresentationState,
+        panelSize: NSSize
+    ) -> ShelfDragLayout {
+        switch state {
+        case .empty:
+            ShelfDragLayout.empty(panelSize: panelSize)
+        case .detail:
+            ShelfDragLayout.detail(panelSize: panelSize)
+        case .docked:
+            ShelfDragLayout.docked(panelSize: panelSize)
+        case .compact, .instantActions:
+            ShelfDragLayout.compact(panelSize: panelSize)
+        }
     }
 }
