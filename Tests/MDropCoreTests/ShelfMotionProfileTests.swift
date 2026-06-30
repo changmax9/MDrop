@@ -19,15 +19,28 @@ struct ShelfMotionProfileTests {
         #expect(ShelfMotionProfile.reference.controlCenterInset == 23)
         #expect(ShelfMotionProfile.reference.controlIconPointSize == 12)
         #expect(ShelfMotionProfile.reference.controlHoverDuration == 0.14)
+        #expect(ShelfMotionProfile.reference.handleHoverWidth == 20)
+        #expect(ShelfMotionProfile.reference.handleDraggingWidth == 36)
+        #expect(ShelfMotionProfile.reference.handleHeight == 4)
     }
 
     @Test("Motion durations stay snappy")
     func motionDurationsStaySnappy() {
         let profile = ShelfMotionProfile.reference
-        #expect(profile.appearanceDuration == 0.08)
-        #expect(profile.frameMorphDuration == 0.22)
+        #expect(profile.appearanceDuration == 0.42)
+        #expect(profile.jellyContentDelay == 0.09)
+        #expect(profile.frameMorphDuration == 0.36)
+        #expect(profile.layoutFadeDuration == 0.11)
+        #expect(profile.reducedMotionDuration == 0.16)
         #expect(profile.hoverChromeDuration == 0.14)
         #expect(profile.stackDuration == 0.28)
         #expect(profile.closeDuration == 0.10)
+    }
+
+    @Test("Marquee timing matches the measured reference")
+    func marqueeTimingMatchesReference() {
+        let profile = ShelfMotionProfile.reference
+        #expect(profile.marqueeInitialDelay == 0.7)
+        #expect(profile.marqueePointsPerSecond == 24)
     }
 }
