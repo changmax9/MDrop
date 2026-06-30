@@ -49,6 +49,10 @@ struct ShelfView: View {
                 shelfContent
                     .opacity(resolvedContentOpacity)
                     .scaleEffect(resolvedContentScale)
+                    .animation(
+                        layoutVisibilityAnimation,
+                        value: store.isLayoutContentVisible
+                    )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -246,15 +250,30 @@ struct ShelfView: View {
     }
 
     private var resolvedContentScale: CGFloat {
-        store.animatesInitialAppearance
+        let entranceScale = store.animatesInitialAppearance
             ? entranceContentScale
             : 1
+        let layoutScale: CGFloat =
+            store.isLayoutContentVisible ? 1 : 0.98
+        return entranceScale * layoutScale
     }
 
     private var animatedCornerRadius: CGFloat {
         store.animatesInitialAppearance && !reduceMotion
             ? entranceCornerRadius
             : glassCornerRadius
+    }
+
+    private var layoutVisibilityAnimation: Animation {
+        reduceMotion
+            ? .linear(
+                duration:
+                    ShelfMotionProfile.reference.reducedMotionDuration
+            )
+            : .easeOut(
+                duration:
+                    ShelfMotionProfile.reference.layoutFadeDuration
+            )
     }
 
     @MainActor
@@ -513,90 +532,262 @@ private struct ShelfDetailView: View {
     let onScript: (ScriptDefinition) -> Void
     let onChange: () -> Void
     let onClose: () -> Void
-    @AppStorage("autoCloseDetail") private var autoCloseDetail = false
+    @State private var viewMode: ShelfDetailViewMode = .grid
+    @State private var automation = AutomationStore.shared
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack {
+        VStack(spacing: 3) {
+            HStack(spacing: 8) {
                 Button(action: onCollapse) {
-                    Image(systemName: "chevron.left")
+                    ShelfCircleControlLabel(
+                        systemName: "chevron.left"
+                    )
                 }
-                .buttonStyle(.glass)
-                TextField("Shelf Name", text: $store.shelf.name)
-                    .textFieldStyle(.plain)
-                    .font(.headline)
-                    .onSubmit(onChange)
-                Spacer()
-                Button(action: onDock) {
-                    Image(systemName: "sidebar.left")
-                }
-                .buttonStyle(.glass)
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                }
-                .buttonStyle(.glass)
-            }
+                .buttonStyle(.plain)
+                .help("Back to Compact Shelf")
 
-            ScrollView {
-                LazyVStack(spacing: 5) {
-                    ForEach(store.shelf.items) { item in
-                        Button {
-                            store.toggleSelection(
-                                item.id,
-                                extending: NSEvent.modifierFlags.contains(.command)
-                            )
-                        } label: {
-                            ShelfItemRow(
-                                item: item,
-                                isSelected: store.selectedItemIDs.contains(item.id),
-                                onMoveBefore: { sourceID in
-                                    store.shelf.moveItem(sourceID, before: item.id)
-                                    onChange()
-                                },
-                                onDragStarted: {
-                                    if autoCloseDetail {
-                                        onCollapse()
-                                    }
-                                }
-                            )
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(detailTitle)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(sizeSummary)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+                .lineLimit(1)
+
+                Spacer()
+
+                detailActionsMenu
+
+                Button {
+                    viewMode = .grid
+                } label: {
+                    ShelfCircleControlLabel(
+                        systemName: "square.grid.2x2",
+                        externallyHovered: viewMode == .grid
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Grid View")
+
+                Button {
+                    viewMode = .list
+                } label: {
+                    ShelfCircleControlLabel(
+                        systemName: "list.bullet",
+                        externallyHovered: viewMode == .list
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("List View")
+            }
+            .padding(.horizontal, 9)
+            .padding(.top, 7)
+
+            HStack(spacing: 12) {
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: viewMode == .grid ? 14 : 8) {
+                        ForEach(store.shelf.items) { item in
+                            detailItem(item)
                         }
-                        .buttonStyle(.plain)
-                        .contentShape(.rect)
-                        .contextMenu {
-                            Button("Copy Path") {
-                                if let url = item.fileURL {
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString(url.path, forType: .string)
-                                }
-                            }
-                            Button("Remove", role: .destructive) {
-                                store.remove([item.id])
-                                onChange()
+                    }
+                    .padding(.horizontal, 4)
+                }
+                .scrollIndicators(.hidden)
+
+                Button(action: revealInFinder) {
+                    VStack(spacing: 5) {
+                        Image(systemName: "arrowshape.turn.up.right.circle")
+                            .font(.system(size: 35, weight: .light))
+                        Text("Reveal in Finder")
+                            .font(.system(size: 10))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(.secondary)
+                    .frame(width: 92)
+                }
+                .buttonStyle(.plain)
+                .disabled(fileURLs.isEmpty)
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 10)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var detailActionsMenu: some View {
+        ZStack {
+            ShelfCircleControlLabel(systemName: "slider.horizontal.3")
+                .allowsHitTesting(false)
+
+            Menu {
+                Button("Dock to Edge", systemImage: "sidebar.left") {
+                    onDock()
+                }
+                Menu("Actions") {
+                    ForEach(availableActions, id: \.rawValue) { action in
+                        Button(
+                            action.displayTitle,
+                            systemImage: action.symbolName
+                        ) {
+                            onAction(action)
+                        }
+                    }
+                }
+                if !automation.customActions.isEmpty {
+                    Menu("Custom Actions") {
+                        ForEach(automation.customActions) { preset in
+                            Button(preset.name) {
+                                onPreset(preset)
                             }
                         }
                     }
                 }
-                .padding(.vertical, 2)
+                if !automation.scripts.isEmpty {
+                    Menu("Scripts") {
+                        ForEach(automation.scripts) { script in
+                            Button(script.name) {
+                                onScript(script)
+                            }
+                        }
+                    }
+                }
+                Divider()
+                Button("Close Shelf", systemImage: "xmark", role: .destructive) {
+                    onClose()
+                }
+            } label: {
+                Color.clear
+                    .frame(
+                        width:
+                            ShelfMotionProfile.reference.controlDiameter,
+                        height:
+                            ShelfMotionProfile.reference.controlDiameter
+                    )
+                    .contentShape(.circle)
             }
-
-            HStack {
-                Text("\(store.shelf.items.count) items")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                ActionMenu(
-                    items: store.selectedItemIDs.isEmpty
-                        ? store.shelf.items
-                        : store.shelf.items.filter { store.selectedItemIDs.contains($0.id) },
-                    onAction: onAction,
-                    onPreset: onPreset,
-                    onScript: onScript
-                )
-            }
-            .font(.caption)
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(
+            width: ShelfMotionProfile.reference.controlDiameter,
+            height: ShelfMotionProfile.reference.controlDiameter
+        )
+        .help("Shelf Options")
     }
+
+    @ViewBuilder
+    private func detailItem(_ item: ShelfItemRecord) -> some View {
+        Group {
+            if viewMode == .grid {
+                VStack(spacing: 3) {
+                    ShelfThumbnailView(
+                        item: item,
+                        size: CGSize(width: 52, height: 64)
+                    )
+                    .onDrag {
+                        makeItemProvider(for: item)
+                    }
+                    Text(item.displayName)
+                        .font(.system(size: 9))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(width: 78)
+                }
+            } else {
+                HStack(spacing: 7) {
+                    ShelfItemIcon(item: item, size: 38)
+                        .onDrag {
+                            makeItemProvider(for: item)
+                        }
+                    Text(item.displayName)
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(width: 92, alignment: .leading)
+                }
+                .padding(6)
+                .glassEffect(.regular, in: .rect(cornerRadius: 11))
+            }
+        }
+        .contentShape(.rect)
+        .onTapGesture {
+            store.toggleSelection(
+                item.id,
+                extending:
+                    NSEvent.modifierFlags.contains(.command)
+            )
+        }
+        .contextMenu {
+            Button("Copy Path") {
+                if let url = item.fileURL {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(
+                        url.path,
+                        forType: .string
+                    )
+                }
+            }
+            Button("Remove", role: .destructive) {
+                store.remove([item.id])
+                onChange()
+            }
+        }
+    }
+
+    private var detailTitle: String {
+        let count = store.shelf.items.count
+        return count == 1 ? "1 Document" : "\(count) Documents"
+    }
+
+    private var fileURLs: [URL] {
+        store.shelf.items.compactMap(\.fileURL)
+    }
+
+    private var sizeSummary: String {
+        let byteCount = fileURLs.reduce(Int64.zero) { partial, url in
+            let values = try? url.resourceValues(
+                forKeys: [
+                    .fileSizeKey,
+                    .totalFileAllocatedSizeKey
+                ]
+            )
+            return partial + Int64(
+                values?.totalFileAllocatedSize
+                    ?? values?.fileSize
+                    ?? 0
+            )
+        }
+        return ByteCountFormatter.string(
+            fromByteCount: byteCount,
+            countStyle: .file
+        )
+    }
+
+    private var selectedItems: [ShelfItemRecord] {
+        store.selectedItemIDs.isEmpty
+            ? store.shelf.items
+            : store.shelf.items.filter {
+                store.selectedItemIDs.contains($0.id)
+            }
+    }
+
+    private var availableActions: [BuiltinActionID] {
+        let available = BuiltinActionCatalog.availableActions(
+            for: selectedItems
+        )
+        return BuiltinActionID.allCases.filter(available.contains)
+    }
+
+    private func revealInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting(fileURLs)
+    }
+}
+
+private enum ShelfDetailViewMode {
+    case grid
+    case list
 }
 
 private struct ActionMenu: View {

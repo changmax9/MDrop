@@ -137,11 +137,12 @@ final class ShelfPanelController {
     private let quickLookController = QuickLookController()
     private var keyMonitor: Any?
     private var closeWorkItem: DispatchWorkItem?
+    private var morphTask: Task<Void, Never>?
     private let emptySize = NSSize(
         width: CGFloat(ShelfMotionProfile.reference.emptyPanel.width),
         height: CGFloat(ShelfMotionProfile.reference.emptyPanel.height)
     )
-    private let detailSize = NSSize(width: 430, height: 440)
+    private let detailSize = NSSize(width: 430, height: 180)
     private let dockedSize = NSSize(width: 92, height: 250)
 
     init(
@@ -269,6 +270,8 @@ final class ShelfPanelController {
     func close() {
         closeWorkItem?.cancel()
         closeWorkItem = nil
+        morphTask?.cancel()
+        morphTask = nil
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
@@ -288,10 +291,54 @@ final class ShelfPanelController {
     }
 
     private func toggleDetail() {
-        store.shelf.presentationState =
+        guard morphTask == nil else { return }
+        let targetState: ShelfPresentationState =
             store.shelf.presentationState == .detail ? .compact : .detail
-        refreshSize()
-        onChange()
+        let targetSize = Self.size(
+            for: targetState,
+            empty: emptySize,
+            compact: Self.compactSize(
+                itemCount: store.shelf.items.count
+            ),
+            detail: detailSize,
+            docked: dockedSize
+        )
+        store.isLayoutContentVisible = false
+        resize(to: targetSize)
+
+        morphTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let fadeDuration = reduceMotion
+                ? ShelfMotionProfile.reference.reducedMotionDuration
+                : ShelfMotionProfile.reference.layoutFadeDuration
+            do {
+                try await Task.sleep(for: .seconds(fadeDuration))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+
+            store.shelf.presentationState = targetState
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            store.isLayoutContentVisible = true
+            onChange()
+
+            let remainingDuration = max(
+                0,
+                ShelfMotionProfile.reference.frameMorphDuration
+                    - fadeDuration
+            )
+            do {
+                try await Task.sleep(
+                    for: .seconds(remainingDuration)
+                )
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            morphTask = nil
+        }
     }
 
     private func run(_ action: BuiltinActionID) {
@@ -407,9 +454,13 @@ final class ShelfPanelController {
     }
 
     private func resize(to size: NSSize) {
-        var frame = panel.frame
-        frame.origin.y += frame.height - size.height
-        frame.size = size
+        guard panel.frame.size != size else { return }
+        let visibleFrame = (panel.screen ?? NSScreen.main)?.visibleFrame
+        let frame = ShelfPanelGeometry.centeredFrame(
+            from: panel.frame,
+            to: size,
+            constrainedTo: visibleFrame
+        )
 
         guard !reduceMotion else {
             panel.setFrame(frame, display: true)
