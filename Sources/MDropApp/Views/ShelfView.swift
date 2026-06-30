@@ -65,7 +65,7 @@ struct ShelfView: View {
                 }
             }
             .glassEffect(
-                .regular.interactive(),
+                .regular,
                 in: .rect(cornerRadius: glassCornerRadius)
             )
             .glassEffectID(store.shelf.id, in: glassNamespace)
@@ -104,6 +104,14 @@ struct ShelfView: View {
                 : .easeOut(duration: 0.12),
             value: store.isReceivingDrop
         )
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: glassCornerRadius,
+                style: .continuous
+            )
+            .stroke(.primary.opacity(0.16), lineWidth: 0.6)
+            .allowsHitTesting(false)
+        }
         .overlay {
             if colorSchemeContrast == .increased {
                 RoundedRectangle(
@@ -251,7 +259,10 @@ private struct EmptyShelfView: View {
                 }
                 Spacer()
             }
-            .padding(6)
+            .padding(
+                ShelfMotionProfile.reference.controlCenterInset
+                    - ShelfMotionProfile.reference.controlDiameter / 2
+            )
         }
     }
 
@@ -262,14 +273,53 @@ private struct EmptyShelfView: View {
 
 struct ShelfCircleControlLabel: View {
     let systemName: String
+    var externallyHovered: Bool? = nil
+    @State private var internallyHovered = false
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: 12, weight: .semibold))
+            .font(
+                .system(
+                    size: ShelfMotionProfile.reference.controlIconPointSize,
+                    weight: .semibold
+                )
+            )
             .foregroundStyle(.black.opacity(0.76))
-            .frame(width: 32, height: 32)
-            .background(.black.opacity(0.055), in: .circle)
-            .glassEffect(.regular.interactive(), in: .circle)
+            .frame(
+                width: ShelfMotionProfile.reference.controlDiameter,
+                height: ShelfMotionProfile.reference.controlDiameter
+            )
+            .background(
+                .black.opacity(0.055),
+                in: .circle
+            )
+            .glassEffect(.regular, in: .circle)
+            .overlay {
+                Circle()
+                    .stroke(.black.opacity(0.07), lineWidth: 0.5)
+                    .allowsHitTesting(false)
+            }
+            .shadow(
+                color: .black.opacity(isHovered ? 0.19 : 0.025),
+                radius: isHovered ? 5.5 : 1,
+                y: isHovered ? 2.5 : 0.5
+            )
+            .contentShape(.circle)
+            .onHover { hovering in
+                guard externallyHovered == nil else { return }
+                internallyHovered = hovering
+            }
+            .animation(
+                .easeOut(
+                    duration:
+                        ShelfMotionProfile.reference.controlHoverDuration
+                ),
+                value: isHovered
+            )
+    }
+
+    private var isHovered: Bool {
+        externallyHovered ?? internallyHovered
     }
 }
 

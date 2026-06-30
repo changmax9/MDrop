@@ -40,7 +40,7 @@ public struct FileReference: Codable, Hashable, Sendable {
         return (
             try? URL(
                 resolvingBookmarkData: bookmarkData,
-                options: [.withSecurityScope, .withoutUI],
+                options: [.withoutUI],
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             )
@@ -124,8 +124,18 @@ public struct ShelfRecord: Identifiable, Codable, Hashable, Sendable {
     }
 
     public mutating func append(_ newItems: [ShelfItemRecord], now: Date = .now) {
-        guard !newItems.isEmpty else { return }
-        items.append(contentsOf: newItems)
+        var seenFilePaths = Set(items.compactMap { item -> String? in
+            guard case let .file(reference) = item.payload else { return nil }
+            return reference.url.standardizedFileURL.path
+        })
+        let uniqueItems = newItems.filter { item in
+            guard case let .file(reference) = item.payload else { return true }
+            return seenFilePaths.insert(
+                reference.url.standardizedFileURL.path
+            ).inserted
+        }
+        guard !uniqueItems.isEmpty else { return }
+        items.append(contentsOf: uniqueItems)
         presentationState = dockedEdge == nil ? .compact : .docked
         modifiedAt = now
     }

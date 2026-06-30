@@ -15,6 +15,7 @@ struct CompactStackedShelfView: View {
     @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var isHovering = false
+    @State private var isMenuHovering = false
     @State private var draggedItemID: UUID?
     @State private var dragResetTask: Task<Void, Never>?
 
@@ -34,8 +35,11 @@ struct CompactStackedShelfView: View {
                 menuButton
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 1)
-            .padding(.top, 1)
+            .padding(
+                ShelfMotionProfile.reference.controlCenterInset
+                    - ShelfMotionProfile.reference.controlDiameter / 2
+                    - 5
+            )
             .opacity(isDraggingItem ? 0.22 : 1)
 
             thumbnailStack
@@ -43,7 +47,7 @@ struct CompactStackedShelfView: View {
             detailButton
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, 8)
-                .padding(.bottom, 7)
+                .padding(.bottom, 5)
                 .opacity(isDraggingItem ? 0.22 : 1)
         }
         .padding(5)
@@ -86,21 +90,42 @@ struct CompactStackedShelfView: View {
     }
 
     private var menuButton: some View {
-        Menu {
-            ShelfMenuContent(
-                store: store,
-                onDock: onDock,
-                onQuickLook: onQuickLook,
-                onAddClipboard: onAddClipboard,
-                onAction: onAction,
-                onChange: onChange
+        ZStack {
+            ShelfCircleControlLabel(
+                systemName: "chevron.down",
+                externallyHovered: isMenuHovering
             )
-        } label: {
-            ShelfCircleControlLabel(systemName: "chevron.down")
+            .allowsHitTesting(false)
+
+            Menu {
+                ShelfMenuContent(
+                    store: store,
+                    onDock: onDock,
+                    onQuickLook: onQuickLook,
+                    onAddClipboard: onAddClipboard,
+                    onAction: onAction,
+                    onChange: onChange
+                )
+            } label: {
+                Color.clear
+                    .frame(
+                        width: ShelfMotionProfile.reference.controlDiameter,
+                        height: ShelfMotionProfile.reference.controlDiameter
+                    )
+                    .contentShape(.circle)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
+        .frame(
+            width: ShelfMotionProfile.reference.controlDiameter,
+            height: ShelfMotionProfile.reference.controlDiameter
+        )
+        .contentShape(.circle)
+        .onHover { hovering in
+            isMenuHovering = hovering
+        }
         .help("Shelf Actions")
         .accessibilityLabel("Shelf Actions")
     }
@@ -179,14 +204,15 @@ struct CompactStackedShelfView: View {
         Button(action: onExpand) {
             HStack(spacing: 5) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13, weight: .regular))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .bold))
             }
             .padding(.horizontal, 10)
-            .frame(height: 28)
+            .frame(height: 29)
+            .background(.black.opacity(0.025), in: .capsule)
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)

@@ -22,6 +22,23 @@ final class ShelfRecordTests: XCTestCase {
         XCTAssertEqual(shelf.modifiedAt, newModifiedAt)
     }
 
+    func testAppendingTheSameFileAgainDoesNotDuplicateIt() {
+        let fileURL = URL(filePath: "/tmp/MDrop-duplicate.pdf")
+        let first = ShelfItemRecord(
+            payload: .file(FileReference(url: fileURL)),
+            displayName: fileURL.lastPathComponent
+        )
+        let duplicate = ShelfItemRecord(
+            payload: .file(FileReference(url: fileURL)),
+            displayName: fileURL.lastPathComponent
+        )
+        var shelf = ShelfRecord(items: [first])
+
+        shelf.append([duplicate])
+
+        XCTAssertEqual(shelf.items.map(\.id), [first.id])
+    }
+
     func testPinnedShelfDoesNotAutoCloseWhenEmpty() {
         var shelf = ShelfRecord(name: "Pinned", isPinned: true)
 
@@ -57,5 +74,31 @@ final class ShelfRecordTests: XCTestCase {
         )
 
         XCTAssertEqual(reference.resolvedURL(), original)
+    }
+
+    func testPortableBookmarkResolvesWithoutSecurityScope() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appending(path: "portable.txt")
+        try Data().write(to: fileURL)
+        let bookmark = try fileURL.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        let reference = FileReference(
+            url: URL(filePath: "/tmp/stale-path"),
+            bookmarkData: bookmark
+        )
+
+        XCTAssertEqual(
+            reference.resolvedURL().standardizedFileURL,
+            fileURL.standardizedFileURL
+        )
     }
 }

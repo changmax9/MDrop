@@ -22,7 +22,15 @@ xcodebuild \
   build
 
 cp -R "$DERIVED_DATA/Build/Products/Release/$APP_NAME.app" "$APP_BUNDLE"
-codesign --force --deep --sign - "$APP_BUNDLE"
+find "$APP_BUNDLE/Contents" -type d -name '*.framework' -print0 |
+  while IFS= read -r -d '' framework; do
+    codesign --force --sign - "$framework"
+  done
+codesign \
+  --force \
+  --sign - \
+  --requirements "$ROOT_DIR/Config/MDrop.requirements" \
+  "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 cp -R "$APP_BUNDLE" "$STAGING_DIR/$APP_NAME.app"

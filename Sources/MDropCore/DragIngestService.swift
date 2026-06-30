@@ -55,7 +55,7 @@ public struct DragIngestService: Sendable {
 
     private func fileItem(for url: URL, now: Date) -> ShelfItemRecord {
         let bookmark = try? url.bookmarkData(
-            options: [.withSecurityScope],
+            options: [],
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )

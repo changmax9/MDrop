@@ -4,8 +4,14 @@ import QuartzCore
 import SwiftUI
 
 final class ShelfPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+final class ShelfWindowDragHandleView: NSView {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
 }
 
 @MainActor
@@ -35,8 +41,18 @@ final class ShelfDropContainerView: NSView {
     override func draggingEntered(
         _ sender: NSDraggingInfo
     ) -> NSDragOperation {
+        guard !originatesFromThisShelf(sender) else {
+            onDropTargeted?(false)
+            return []
+        }
         onDropTargeted?(true)
         return .copy
+    }
+
+    override func draggingUpdated(
+        _ sender: NSDraggingInfo
+    ) -> NSDragOperation {
+        originatesFromThisShelf(sender) ? [] : .copy
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
@@ -45,7 +61,20 @@ final class ShelfDropContainerView: NSView {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         onDropTargeted?(false)
+        guard !originatesFromThisShelf(sender) else { return false }
         return DragPasteboardReceiver.perform(sender, onDrop: onDrop)
+    }
+
+    private func originatesFromThisShelf(
+        _ sender: NSDraggingInfo
+    ) -> Bool {
+        if let sourceView = sender.draggingSource as? NSView {
+            return sourceView.window === window
+        }
+        if let sourceWindow = sender.draggingSource as? NSWindow {
+            return sourceWindow === window
+        }
+        return false
     }
 }
 
@@ -107,6 +136,7 @@ final class ShelfPanelController {
         let dropContainer = ShelfDropContainerView(
             frame: NSRect(origin: .zero, size: size)
         )
+        let dragHandle = ShelfWindowDragHandleView()
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         hostingView.layer?.isOpaque = false
@@ -118,12 +148,22 @@ final class ShelfPanelController {
         }
         dropContainer.onDrop = onDrop
         hostingView.translatesAutoresizingMaskIntoConstraints = false
+        dragHandle.translatesAutoresizingMaskIntoConstraints = false
         dropContainer.addSubview(hostingView)
+        dropContainer.addSubview(
+            dragHandle,
+            positioned: .above,
+            relativeTo: hostingView
+        )
         NSLayoutConstraint.activate([
             hostingView.leadingAnchor.constraint(equalTo: dropContainer.leadingAnchor),
             hostingView.trailingAnchor.constraint(equalTo: dropContainer.trailingAnchor),
             hostingView.topAnchor.constraint(equalTo: dropContainer.topAnchor),
-            hostingView.bottomAnchor.constraint(equalTo: dropContainer.bottomAnchor)
+            hostingView.bottomAnchor.constraint(equalTo: dropContainer.bottomAnchor),
+            dragHandle.centerXAnchor.constraint(equalTo: dropContainer.centerXAnchor),
+            dragHandle.topAnchor.constraint(equalTo: dropContainer.topAnchor),
+            dragHandle.widthAnchor.constraint(equalToConstant: 44),
+            dragHandle.heightAnchor.constraint(equalToConstant: 18)
         ])
         panel.contentView = dropContainer
         panel.appearance = nil
@@ -134,7 +174,7 @@ final class ShelfPanelController {
         panel.hidesOnDeactivate = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false
         panel.animationBehavior = .none
         position(at: location ?? NSEvent.mouseLocation)
 

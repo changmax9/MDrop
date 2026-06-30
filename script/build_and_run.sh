@@ -26,7 +26,16 @@ xcodebuild \
 rm -rf "$APP_BUNDLE"
 mkdir -p "$DIST_DIR"
 cp -R "$BUILD_APP" "$APP_BUNDLE"
-codesign --force --deep --sign - "$APP_BUNDLE"
+find "$APP_BUNDLE/Contents" -type d -name '*.framework' -print0 |
+  while IFS= read -r -d '' framework; do
+    codesign --force --sign - "$framework"
+  done
+codesign \
+  --force \
+  --sign - \
+  --requirements "$ROOT_DIR/Config/MDrop.requirements" \
+  "$APP_BUNDLE"
+codesign --verify --deep --strict "$APP_BUNDLE"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 "$LSREGISTER" -u "$BUILD_APP" >/dev/null 2>&1 || true
 "$LSREGISTER" -f "$APP_BUNDLE"

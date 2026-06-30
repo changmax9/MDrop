@@ -15,6 +15,10 @@ struct ShelfMotionProfileTests {
         )
         #expect(ShelfMotionProfile.reference.emptyCornerRadius == 28)
         #expect(ShelfMotionProfile.reference.emptyLabelPointSize == 15)
+        #expect(ShelfMotionProfile.reference.controlDiameter == 32)
+        #expect(ShelfMotionProfile.reference.controlCenterInset == 23)
+        #expect(ShelfMotionProfile.reference.controlIconPointSize == 12)
+        #expect(ShelfMotionProfile.reference.controlHoverDuration == 0.14)
     }
 
     @Test("Motion durations stay snappy")
