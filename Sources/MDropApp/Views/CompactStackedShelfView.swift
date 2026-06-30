@@ -22,7 +22,7 @@ struct CompactStackedShelfView: View {
         ZStack {
             Capsule()
                 .fill(.secondary.opacity(0.55))
-                .frame(width: 34, height: 5)
+                .frame(width: 20, height: 4)
                 .frame(maxHeight: .infinity, alignment: .top)
                 .padding(.top, 4)
                 .opacity(isDraggingItem ? 0.35 : 1)
@@ -34,8 +34,8 @@ struct CompactStackedShelfView: View {
                 menuButton
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
+            .padding(.horizontal, 1)
+            .padding(.top, 1)
             .opacity(isDraggingItem ? 0.22 : 1)
 
             thumbnailStack
@@ -43,7 +43,7 @@ struct CompactStackedShelfView: View {
             detailButton
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, 8)
-                .padding(.bottom, 10)
+                .padding(.bottom, 7)
                 .opacity(isDraggingItem ? 0.22 : 1)
         }
         .padding(5)
@@ -78,13 +78,9 @@ struct CompactStackedShelfView: View {
 
     private var closeButton: some View {
         Button(action: onClose) {
-            Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .bold))
-                .frame(width: 30, height: 30)
-                .background(.white.opacity(0.09), in: .circle)
+            ShelfCircleControlLabel(systemName: "xmark")
         }
-        .buttonStyle(.glass)
-        .buttonBorderShape(.circle)
+        .buttonStyle(.plain)
         .help("Close Shelf")
         .accessibilityLabel("Close Shelf")
     }
@@ -100,15 +96,11 @@ struct CompactStackedShelfView: View {
                 onChange: onChange
             )
         } label: {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 12, weight: .bold))
-                .frame(width: 30, height: 30)
+            ShelfCircleControlLabel(systemName: "chevron.down")
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .background(.white.opacity(0.09), in: .circle)
-        .glassEffect(.regular.interactive(), in: .circle)
         .help("Shelf Actions")
         .accessibilityLabel("Shelf Actions")
     }
@@ -144,7 +136,7 @@ struct CompactStackedShelfView: View {
     private func thumbnailCard(_ item: ShelfItemRecord) -> some View {
         ShelfThumbnailView(
             item: item,
-            size: CGSize(width: 78, height: 94)
+            size: CGSize(width: 70, height: 90)
         )
         .shadow(
             color: .black.opacity(isHovering ? 0.26 : 0.18),
@@ -187,14 +179,14 @@ struct CompactStackedShelfView: View {
         Button(action: onExpand) {
             HStack(spacing: 5) {
                 Text(label)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .bold))
             }
             .padding(.horizontal, 10)
-            .frame(height: 25)
+            .frame(height: 28)
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)

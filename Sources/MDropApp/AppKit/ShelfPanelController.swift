@@ -107,6 +107,12 @@ final class ShelfPanelController {
         let dropContainer = ShelfDropContainerView(
             frame: NSRect(origin: .zero, size: size)
         )
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.isOpaque = false
+        dropContainer.wantsLayer = true
+        dropContainer.layer?.backgroundColor = NSColor.clear.cgColor
+        dropContainer.layer?.isOpaque = false
         dropContainer.onDropTargeted = { [weak store] targeted in
             store?.isReceivingDrop = targeted
         }

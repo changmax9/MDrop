@@ -233,24 +233,17 @@ private struct EmptyShelfView: View {
         ZStack {
             Capsule()
                 .fill(.secondary.opacity(0.52))
-                .frame(width: 36, height: 5)
+                .frame(width: 20, height: 4)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .padding(.top, 10)
+                .padding(.top, 8)
                 .accessibilityHidden(true)
 
             VStack {
                 HStack {
                     Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .bold))
-                            .frame(width: 28, height: 28)
-                            .background(
-                                .white.opacity(0.09),
-                                in: .circle
-                            )
+                        ShelfCircleControlLabel(systemName: "xmark")
                     }
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
+                    .buttonStyle(.plain)
                     .help("Close Shelf")
                     .accessibilityLabel("Close Shelf")
 
@@ -258,12 +251,25 @@ private struct EmptyShelfView: View {
                 }
                 Spacer()
             }
-            .padding(18)
+            .padding(6)
         }
     }
 
     private var showsChrome: Bool {
         !isReceivingDrop
+    }
+}
+
+struct ShelfCircleControlLabel: View {
+    let systemName: String
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.black.opacity(0.76))
+            .frame(width: 32, height: 32)
+            .background(.black.opacity(0.055), in: .circle)
+            .glassEffect(.regular.interactive(), in: .circle)
     }
 }
 
