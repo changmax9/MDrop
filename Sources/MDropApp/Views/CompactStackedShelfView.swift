@@ -21,10 +21,6 @@ struct CompactStackedShelfView: View {
 
     var body: some View {
         ZStack {
-            ShelfDragHandle(store: store)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .padding(.top, 4)
-
             HStack {
                 closeButton
                 Spacer()

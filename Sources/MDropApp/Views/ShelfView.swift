@@ -128,6 +128,12 @@ struct ShelfView: View {
                     .allowsHitTesting(false)
             }
         }
+        .overlay(alignment: .top) {
+            if showsDragHandle {
+                ShelfDragHandle(store: store)
+                    .padding(.top, 8)
+            }
+        }
         .alert(
             "MDrop",
             isPresented: Binding(
@@ -264,6 +270,15 @@ struct ShelfView: View {
             : glassCornerRadius
     }
 
+    private var showsDragHandle: Bool {
+        switch store.shelf.presentationState {
+        case .empty, .compact, .instantActions:
+            true
+        case .detail, .docked:
+            false
+        }
+    }
+
     private var layoutVisibilityAnimation: Animation {
         reduceMotion
             ? .linear(
@@ -388,10 +403,6 @@ private struct EmptyShelfView: View {
 
     private var emptyChrome: some View {
         ZStack {
-            ShelfDragHandle(store: store)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .padding(.top, 8)
-
             VStack {
                 HStack {
                     Button(action: onClose) {

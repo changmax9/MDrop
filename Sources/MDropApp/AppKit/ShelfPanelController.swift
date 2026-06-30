@@ -13,6 +13,35 @@ final class ShelfWindowDragSurfaceView: NSView {
         ShelfDragLayout(interactiveRegions: [])
     }
     var onDraggingChanged: (Bool) -> Void = { _ in }
+    var onHoverChanged: (Bool) -> Void = { _ in }
+    private var hoverTrackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea {
+            removeTrackingArea(hoverTrackingArea)
+        }
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [
+                .mouseEnteredAndExited,
+                .activeAlways,
+                .inVisibleRect
+            ],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea)
+        hoverTrackingArea = trackingArea
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        onHoverChanged(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onHoverChanged(false)
+    }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         switch NSApp.currentEvent?.type {
@@ -37,8 +66,6 @@ final class ShelfWindowDragSurfaceView: NSView {
 final class ShelfDropContainerView: NSView {
     var onDropTargeted: ((Bool) -> Void)?
     var onDrop: (([DropRepresentation]) -> Void)?
-    var onHoverChanged: ((Bool) -> Void)?
-    private var hoverTrackingArea: NSTrackingArea?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -48,33 +75,6 @@ final class ShelfDropContainerView: NSView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         configureDropDestination()
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let hoverTrackingArea {
-            removeTrackingArea(hoverTrackingArea)
-        }
-        let trackingArea = NSTrackingArea(
-            rect: .zero,
-            options: [
-                .mouseEnteredAndExited,
-                .activeAlways,
-                .inVisibleRect
-            ],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(trackingArea)
-        hoverTrackingArea = trackingArea
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        onHoverChanged?(true)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        onHoverChanged?(false)
     }
 
     private func configureDropDestination() {
@@ -199,9 +199,6 @@ final class ShelfPanelController {
         dropContainer.onDropTargeted = { [weak store] targeted in
             store?.isReceivingDrop = targeted
         }
-        dropContainer.onHoverChanged = { [weak store] hovering in
-            store?.isShelfHovered = hovering
-        }
         dropContainer.onDrop = onDrop
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         dragSurface.translatesAutoresizingMaskIntoConstraints = false
@@ -216,6 +213,9 @@ final class ShelfPanelController {
         }
         dragSurface.onDraggingChanged = { [weak store] dragging in
             store?.isWindowDragging = dragging
+        }
+        dragSurface.onHoverChanged = { [weak store] hovering in
+            store?.isShelfHovered = hovering
         }
         dropContainer.addSubview(hostingView)
         dropContainer.addSubview(
@@ -243,6 +243,7 @@ final class ShelfPanelController {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isMovableByWindowBackground = false
+        panel.acceptsMouseMovedEvents = true
         panel.animationBehavior = .none
         position(at: location ?? NSEvent.mouseLocation)
 
