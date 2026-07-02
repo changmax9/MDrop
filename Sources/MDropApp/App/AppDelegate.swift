@@ -58,10 +58,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(
-            systemSymbolName: "square.stack.3d.up.fill",
-            accessibilityDescription: "MDrop"
-        )
+        item.button?.image =
+            BrandAssets.menuBarImage()
+            ?? NSImage(
+                systemSymbolName: "square.stack.3d.up.fill",
+                accessibilityDescription: "MDrop"
+            )
         item.menu = makeStatusMenu()
         if let button = item.button {
             let dropView = StatusDropReceiverView(frame: button.bounds)

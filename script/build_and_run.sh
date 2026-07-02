@@ -61,6 +61,10 @@ stage_swiftpm_bundle() {
       "$ROOT_DIR/Resources/Localizable.xcstrings" \
       --output-directory "$APP_BUNDLE/Contents/Resources"
   fi
+  cp "$ROOT_DIR/Resources/AppIcon.icns" \
+    "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+  cp "$ROOT_DIR/Resources/MDropMenuBarTemplate.pdf" \
+    "$APP_BUNDLE/Contents/Resources/MDropMenuBarTemplate.pdf"
 }
 
 mkdir -p "$DIST_DIR"

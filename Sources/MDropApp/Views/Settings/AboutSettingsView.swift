@@ -5,10 +5,7 @@ struct AboutSettingsView: View {
     var body: some View {
         Section {
             HStack(spacing: 16) {
-                Image(systemName: "square.stack.3d.up.fill")
-                    .font(.system(size: 34, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .frame(width: 52, height: 52)
+                appIcon
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("About MDrop")
@@ -43,6 +40,21 @@ struct AboutSettingsView: View {
                     URL(string: "https://github.com/changmax9/MDrop")!
                 )
             }
+        }
+    }
+
+    @ViewBuilder
+    private var appIcon: some View {
+        if let image = BrandAssets.applicationIcon() {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 52, height: 52)
+        } else {
+            Image(systemName: "square.stack.3d.up.fill")
+                .font(.system(size: 34, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 52, height: 52)
         }
     }
 
