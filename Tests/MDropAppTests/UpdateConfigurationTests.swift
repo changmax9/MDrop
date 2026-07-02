@@ -62,8 +62,8 @@ struct UpdateConfigurationTests {
 
         #expect(info.contains("$(MARKETING_VERSION)"))
         #expect(info.contains("$(CURRENT_PROJECT_VERSION)"))
-        #expect(project.contains("MARKETING_VERSION = 0.2.0;"))
-        #expect(project.contains("CURRENT_PROJECT_VERSION = 2;"))
+        #expect(project.contains("MARKETING_VERSION = 0.2.1;"))
+        #expect(project.contains("CURRENT_PROJECT_VERSION = 3;"))
     }
 
     @Test("SwiftPM release bundle can load the embedded framework")
@@ -111,10 +111,10 @@ struct UpdateConfigurationTests {
             encoding: .utf8
         )
 
-        #expect(appcast.contains("<sparkle:version>2</sparkle:version>"))
+        #expect(appcast.contains("<sparkle:version>3</sparkle:version>"))
         #expect(
             appcast.contains(
-                "<sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>"
+                "<sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>"
             )
         )
         #expect(
@@ -124,10 +124,10 @@ struct UpdateConfigurationTests {
         )
         #expect(
             appcast.contains(
-                "releases/download/v0.2.0/MDrop-0.2.0-arm64.dmg"
+                "releases/download/v0.2.1/MDrop-0.2.1-arm64.dmg"
             )
         )
-        #expect(appcast.contains("length=\"3134049\""))
+        #expect(appcast.contains("length=\"3127669\""))
         #expect(appcast.contains("sparkle:edSignature="))
     }
 

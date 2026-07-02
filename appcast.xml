@@ -9,6 +9,27 @@
         <description>Stable MDrop releases</description>
         <language>en</language>
         <item>
+            <title>MDrop 0.2.1</title>
+            <pubDate>Thu, 02 Jul 2026 11:19:29 +0000</pubDate>
+            <description><![CDATA[
+                <h2>MDrop 0.2.1</h2>
+                <ul>
+                    <li>Removes blank frames while opening or expanding a Shelf.</li>
+                    <li>Replaces the overshooting entrance spring with a smooth monotonic settle.</li>
+                    <li>Preserves the reference-matched Liquid Glass grid/list control.</li>
+                </ul>
+            ]]></description>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/changmax9/MDrop/releases/download/v0.2.1/MDrop-0.2.1-arm64.dmg"
+                length="3127669"
+                type="application/octet-stream"
+                sparkle:edSignature="mcQudWBTd8/LzIHjDXOqImva5CfiFOP0L+aY9g981D6DGFqYdKC+YMR5q69cw/eh9/kgBO2djwL7W44gyJG3Bg=="
+            />
+        </item>
+        <item>
             <title>MDrop 0.2.0</title>
             <pubDate>Thu, 02 Jul 2026 07:35:00 +0000</pubDate>
             <description><![CDATA[
