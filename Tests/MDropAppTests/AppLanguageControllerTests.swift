@@ -48,4 +48,53 @@ struct AppLanguageControllerTests {
         #expect(controller.selection == .english)
         #expect(controller.locale.identifier == "en")
     }
+
+    @Test("Explicit locale selects its lproj bundle at runtime")
+    func explicitLocaleSelectsLocalizedBundle() throws {
+        let bundleURL = FileManager.default.temporaryDirectory
+            .appending(
+                path: "MDropLocalization-\(UUID().uuidString).bundle",
+                directoryHint: .isDirectory
+            )
+        defer {
+            try? FileManager.default.removeItem(at: bundleURL)
+        }
+        let resources = bundleURL
+            .appending(path: "Contents/Resources")
+        let russian = resources
+            .appending(path: "ru.lproj")
+        try FileManager.default.createDirectory(
+            at: russian,
+            withIntermediateDirectories: true
+        )
+        let info: [String: Any] = [
+            "CFBundleIdentifier": "com.maxchang.MDrop.LocalizationFixture",
+            "CFBundleName": "LocalizationFixture",
+            "CFBundlePackageType": "BNDL"
+        ]
+        let infoData = try PropertyListSerialization.data(
+            fromPropertyList: info,
+            format: .xml,
+            options: 0
+        )
+        try infoData.write(
+            to: bundleURL.appending(path: "Contents/Info.plist")
+        )
+        try #"""
+        "Settings" = "Настройки";
+        """#.write(
+            to: russian.appending(path: "Localizable.strings"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let bundle = try #require(Bundle(url: bundleURL))
+
+        #expect(
+            AppLocalization.string(
+                "Settings",
+                locale: Locale(identifier: "ru"),
+                bundle: bundle
+            ) == "Настройки"
+        )
+    }
 }

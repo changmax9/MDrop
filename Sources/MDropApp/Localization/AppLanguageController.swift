@@ -4,12 +4,26 @@ import Observation
 enum AppLocalization {
     static func string(
         _ key: String,
-        locale: Locale = selectedLanguage.locale
+        locale: Locale = selectedLanguage.locale,
+        bundle: Bundle = .main
     ) -> String {
-        String(
-            localized: String.LocalizationValue(key),
-            bundle: .main,
-            locale: locale
+        let language =
+            AppLanguage(rawValue: locale.identifier)
+            ?? AppLanguage.allCases.first {
+                locale.identifier.hasPrefix($0.rawValue)
+            }
+            ?? .english
+        let localizedBundle =
+            bundle.path(
+                forResource: language.rawValue,
+                ofType: "lproj"
+            )
+            .flatMap(Bundle.init(path:))
+            ?? bundle
+        return localizedBundle.localizedString(
+            forKey: key,
+            value: key,
+            table: "Localizable"
         )
     }
 

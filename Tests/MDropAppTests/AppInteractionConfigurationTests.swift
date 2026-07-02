@@ -58,4 +58,37 @@ struct AppInteractionConfigurationTests {
         )
     }
 
+    @Test("Settings window bridge uses the tested safe content size")
+    func settingsWindowBridgeUsesSafeContentSize() throws {
+        let controller = SettingsWindowController()
+        let window = try #require(controller.window)
+        defer { window.close() }
+
+        #expect(
+            window.contentLayoutRect.width
+                >= SettingsLayout.preferredWidth
+        )
+        #expect(
+            window.contentLayoutRect.height
+                >= SettingsLayout.preferredHeight
+        )
+        #expect(window.isReleasedWhenClosed == false)
+        #expect(window.styleMask.contains(.titled))
+        #expect(window.styleMask.contains(.closable))
+    }
+
+    @Test("Settings window bridge reopens the same window")
+    func settingsWindowBridgeReopens() throws {
+        let controller = SettingsWindowController()
+        let window = try #require(controller.window)
+        defer { window.close() }
+
+        controller.show()
+        #expect(window.isVisible)
+        window.close()
+        controller.show()
+
+        #expect(window.isVisible)
+        #expect(controller.window === window)
+    }
 }

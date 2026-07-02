@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var shelfMenu: NSMenu?
     private var lastURLRoute: (url: URL, date: Date)?
     private var languageObserver: NSObjectProtocol?
+    private var settingsWindowController: SettingsWindowController?
     private lazy var notchDropController = NotchDropController { [weak self] representations in
         self?.coordinator.createShelf(with: representations)
     }
@@ -184,6 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Task { @MainActor [weak self] in
                 guard let self, let statusItem else { return }
                 statusItem.menu = makeStatusMenu()
+                settingsWindowController?.refreshLanguage()
             }
         }
     }
@@ -300,8 +302,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openSettings() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        NSApp.activate(ignoringOtherApps: true)
+        let controller =
+            settingsWindowController
+            ?? SettingsWindowController()
+        settingsWindowController = controller
+        controller.show()
     }
 
     @objc private func quit() {
