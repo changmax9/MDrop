@@ -467,6 +467,7 @@ final class ShelfPanelController {
             store.shelf.presentationState = targetState
             await Task.yield()
             guard !Task.isCancelled else { return }
+            store.revealLayoutContent()
 
             let remainingDuration = max(
                 0,

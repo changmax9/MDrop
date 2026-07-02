@@ -36,10 +36,35 @@ struct BrandAssetTests {
             FileManager.default.fileExists(
                 atPath:
                     resources
-                        .appending(path: "MDropMenuBarTemplate.pdf")
+                        .appending(path: "MDropMenuBarTemplate.png")
                         .path
             )
         )
+    }
+
+    @Test("Menu bar template has a transparent background")
+    func menuBarTemplateHasTransparentBackground() throws {
+        let url = repositoryRoot
+            .appending(path: "Resources/MDropMenuBarTemplate.png")
+        guard let image = NSImage(contentsOf: url),
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff)
+        else {
+            Issue.record("Could not load the menu bar PNG")
+            return
+        }
+
+        let cornerAlpha = try #require(
+            bitmap.colorAt(x: 0, y: 0)
+        ).alphaComponent
+        let visibleAlpha = (0 ..< bitmap.pixelsHigh).contains { y in
+            (0 ..< bitmap.pixelsWide).contains { x in
+                (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5
+            }
+        }
+
+        #expect(cornerAlpha == 0)
+        #expect(visibleAlpha)
     }
 
     @Test("Menu bar image is marked as a system template")

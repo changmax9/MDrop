@@ -71,8 +71,8 @@ stage_swiftpm_bundle() {
   fi
   cp "$ROOT_DIR/Resources/AppIcon.icns" \
     "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
-  cp "$ROOT_DIR/Resources/MDropMenuBarTemplate.pdf" \
-    "$APP_BUNDLE/Contents/Resources/MDropMenuBarTemplate.pdf"
+  cp "$ROOT_DIR/Resources/MDropMenuBarTemplate.png" \
+    "$APP_BUNDLE/Contents/Resources/MDropMenuBarTemplate.png"
 }
 
 mkdir -p "$DIST_DIR"

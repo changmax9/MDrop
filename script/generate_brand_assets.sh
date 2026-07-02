@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MASTER="$ROOT_DIR/Resources/Brand/MDropMark.svg"
 MENU_MASTER="$ROOT_DIR/Resources/Brand/MDropMenuBarTemplate.svg"
 ICON_OUTPUT="$ROOT_DIR/Resources/AppIcon.icns"
-MENU_OUTPUT="$ROOT_DIR/Resources/MDropMenuBarTemplate.pdf"
+MENU_OUTPUT="$ROOT_DIR/Resources/MDropMenuBarTemplate.png"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/mdrop-brand.XXXXXX")"
 ICONSET="$WORK_DIR/AppIcon.iconset"
 BASE_PNG="$WORK_DIR/AppIcon-1024.png"
@@ -45,6 +45,11 @@ render_icon 512 1
 render_icon 512 2
 
 iconutil -c icns "$ICONSET" -o "$ICON_OUTPUT"
-sips -s format pdf "$MENU_MASTER" --out "$MENU_OUTPUT" >/dev/null
+sips \
+  -s format png \
+  --resampleHeightWidth 36 36 \
+  "$MENU_MASTER" \
+  --out "$MENU_OUTPUT" \
+  >/dev/null
 
 printf '%s\n%s\n' "$ICON_OUTPUT" "$MENU_OUTPUT"

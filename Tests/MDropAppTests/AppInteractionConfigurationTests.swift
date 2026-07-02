@@ -93,12 +93,12 @@ struct AppInteractionConfigurationTests {
         #expect(controller.window === window)
     }
 
-    @Test("Shelf layout transition never exposes a blank content frame")
-    func shelfLayoutTransitionKeepsContentVisible() {
+    @Test("Shelf layout transition crossfades content during the frame morph")
+    func shelfLayoutTransitionCrossfadesContent() {
         let store = ShelfStore(
             shelf: ShelfRecord(
                 items: [
-                    .text("Visible during transition")
+                    .text("Crossfade during transition")
                 ]
             ),
             animatesInitialAppearance: true
@@ -107,6 +107,10 @@ struct AppInteractionConfigurationTests {
         store.beginLayoutTransition()
 
         #expect(store.isLayoutTransitioning)
+        #expect(!store.isLayoutContentVisible)
+
+        store.revealLayoutContent()
+
         #expect(store.isLayoutContentVisible)
 
         store.endLayoutTransition()

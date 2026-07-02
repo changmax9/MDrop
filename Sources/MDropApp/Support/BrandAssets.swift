@@ -6,11 +6,12 @@ enum BrandAssets {
     ) -> NSImage? {
         guard let url = bundle.url(
             forResource: "MDropMenuBarTemplate",
-            withExtension: "pdf"
+            withExtension: "png"
         ),
         let image = NSImage(contentsOf: url)
         else { return nil }
 
+        image.size = NSSize(width: 18, height: 18)
         return asMenuBarTemplate(image)
     }
 

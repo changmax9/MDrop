@@ -15,7 +15,7 @@ final class ShelfStore {
     var errorMessage: String?
     var isClosing = false
     var isLayoutTransitioning = false
-    var isLayoutContentVisible: Bool { true }
+    var isLayoutContentVisible = true
     let animatesInitialAppearance: Bool
     @ObservationIgnored var cancelAction: (() -> Void)?
 
@@ -29,10 +29,16 @@ final class ShelfStore {
 
     func beginLayoutTransition() {
         isLayoutTransitioning = true
+        isLayoutContentVisible = false
+    }
+
+    func revealLayoutContent() {
+        isLayoutContentVisible = true
     }
 
     func endLayoutTransition() {
         isLayoutTransitioning = false
+        isLayoutContentVisible = true
     }
 
     func append(_ items: [ShelfItemRecord]) {
