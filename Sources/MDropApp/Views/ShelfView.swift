@@ -889,7 +889,7 @@ private struct ShelfDetailView: View {
     }
 }
 
-private enum ShelfDetailViewMode {
+private enum ShelfDetailViewMode: Hashable {
     case grid
     case list
 }
@@ -897,16 +897,25 @@ private enum ShelfDetailViewMode {
 private struct ShelfDetailModePicker: View {
     @Binding var selection: ShelfDetailViewMode
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
+    @Namespace private var glassNamespace
+    @State private var hoveredMode: ShelfDetailViewMode?
 
     var body: some View {
-        HStack(spacing: 0) {
-            modeButton(.grid, systemName: "square.grid.2x2")
-            modeButton(.list, systemName: "list.bullet")
+        GlassEffectContainer(spacing: 0) {
+            HStack(spacing: 0) {
+                modeButton(.grid, systemName: "square.grid.2x2")
+                modeButton(.list, systemName: "list.bullet")
+            }
+            .frame(width: 60, height: 32)
+            .background(.black.opacity(0.025), in: .capsule)
+            .glassEffect(.regular, in: .capsule)
+            .clipShape(Capsule())
         }
         .frame(width: 60, height: 32)
-        .background(.black.opacity(0.025), in: .capsule)
-        .glassEffect(.regular, in: .capsule)
-        .clipShape(Capsule())
+        .animation(selectionAnimation, value: selection)
+        .animation(hoverAnimation, value: hoveredMode)
     }
 
     private func modeButton(
@@ -916,35 +925,89 @@ private struct ShelfDetailModePicker: View {
         Button {
             selection = mode
         } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.78))
-                .frame(width: 30, height: 32)
-                .background {
-                    if selection == mode {
-                        Circle()
-                            .fill(selectedSurfaceColor)
-                            .overlay {
-                                Circle()
-                                    .stroke(
-                                        .primary.opacity(0.07),
-                                        lineWidth: 0.5
-                                    )
-                            }
-                            .padding(1)
-                    }
+            ZStack {
+                if hoveredMode == mode, selection != mode {
+                    Circle()
+                        .glassEffect(
+                            .regular
+                                .tint(hoveredSurfaceColor)
+                                .interactive(),
+                            in: .circle
+                        )
+                        .glassEffectID("mode-hover", in: glassNamespace)
+                        .padding(1)
                 }
-                .contentShape(.circle)
+
+                if selection == mode {
+                    Circle()
+                        .glassEffect(
+                            .regular
+                                .tint(selectedSurfaceColor)
+                                .interactive(),
+                            in: .circle
+                        )
+                        .glassEffectID(
+                            "mode-selection",
+                            in: glassNamespace
+                        )
+                        .padding(1)
+                }
+
+                Image(systemName: systemName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.78))
+            }
+            .frame(width: 30, height: 32)
+            .contentShape(.circle)
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering {
+                hoveredMode = mode
+            } else if hoveredMode == mode {
+                hoveredMode = nil
+            }
+        }
         .help(mode == .grid ? "Grid View" : "List View")
         .accessibilityLabel(mode == .grid ? "Grid View" : "List View")
     }
 
     private var selectedSurfaceColor: Color {
         colorScheme == .dark
-            ? .white.opacity(0.10)
-            : .black.opacity(0.07)
+            ? .white.opacity(0.13)
+            : .black.opacity(0.075)
+    }
+
+    private var hoveredSurfaceColor: Color {
+        colorScheme == .dark
+            ? .white.opacity(0.07)
+            : .black.opacity(0.035)
+    }
+
+    private var reduceMotion: Bool {
+        reduceShelfMotion
+            || systemReduceMotion
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    private var selectionAnimation: Animation {
+        let motion = ShelfDetailModeMotion.reference
+        return reduceMotion
+            ? .easeOut(duration: motion.reducedMotionDuration)
+            : .spring(
+                response: motion.morphResponse,
+                dampingFraction: motion.morphDampingFraction
+            )
+    }
+
+    private var hoverAnimation: Animation {
+        let motion = ShelfDetailModeMotion.reference
+        return .easeOut(
+            duration:
+                reduceMotion
+                    ? motion.reducedMotionDuration
+                    : motion.hoverDuration
+        )
     }
 }
 
