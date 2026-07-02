@@ -103,7 +103,7 @@ struct UpdateConfigurationTests {
         )
     }
 
-    @Test("Appcast describes the signed GitHub release")
+    @Test("Appcast only advertises the last correctly signed release")
     func appcast() throws {
         let appcast = try String(
             contentsOf:
@@ -111,10 +111,11 @@ struct UpdateConfigurationTests {
             encoding: .utf8
         )
 
-        #expect(appcast.contains("<sparkle:version>4</sparkle:version>"))
+        #expect(!appcast.contains("<sparkle:version>4</sparkle:version>"))
+        #expect(appcast.contains("<sparkle:version>3</sparkle:version>"))
         #expect(
             appcast.contains(
-                "<sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>"
+                "<sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>"
             )
         )
         #expect(
@@ -124,10 +125,10 @@ struct UpdateConfigurationTests {
         )
         #expect(
             appcast.contains(
-                "releases/download/v0.2.2/MDrop-0.2.2-arm64.dmg"
+                "releases/download/v0.2.1/MDrop-0.2.1-arm64.dmg"
             )
         )
-        #expect(appcast.contains("length=\""))
+        #expect(appcast.contains("length=\"3127669\""))
         #expect(appcast.contains("sparkle:edSignature="))
     }
 

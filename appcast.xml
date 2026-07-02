@@ -9,27 +9,6 @@
         <description>Stable MDrop releases</description>
         <language>en</language>
         <item>
-            <title>MDrop 0.2.2</title>
-            <pubDate>Thu, 02 Jul 2026 16:30:59 +0000</pubDate>
-            <description><![CDATA[
-                <h2>MDrop 0.2.2</h2>
-                <ul>
-                    <li>Restores the continuous Liquid Glass compact/detail morph and synchronized content crossfade.</li>
-                    <li>Fixes the menu-bar Folded M rendering as a filled square.</li>
-                    <li>Preserves the monotonic opening settle and clear document previews.</li>
-                </ul>
-            ]]></description>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <enclosure
-                url="https://github.com/changmax9/MDrop/releases/download/v0.2.2/MDrop-0.2.2-arm64.dmg"
-                length="3128940"
-                type="application/octet-stream"
-                sparkle:edSignature="/UQ3aq3SMH1r9Pi6WVqoYj+O/C+jH50vNNJiAYuI+ihoI6ZpAQ5XAv7gIJObwLe+Q1VqzNMTgasz68nNo3h9BQ=="
-            />
-        </item>
-        <item>
             <title>MDrop 0.2.1</title>
             <pubDate>Thu, 02 Jul 2026 11:19:29 +0000</pubDate>
             <description><![CDATA[
