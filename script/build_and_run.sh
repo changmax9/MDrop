@@ -4,8 +4,8 @@ set -euo pipefail
 MODE="${1:-run}"
 APP_NAME="MDrop"
 BUNDLE_ID="com.maxchang.MDrop"
-MARKETING_VERSION="0.2.1"
-BUILD_NUMBER="3"
+MARKETING_VERSION="0.2.2"
+BUILD_NUMBER="4"
 CONFIGURATION="${MDROP_CONFIGURATION:-Debug}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

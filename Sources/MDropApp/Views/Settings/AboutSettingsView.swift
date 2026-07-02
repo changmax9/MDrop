@@ -83,12 +83,12 @@ struct AboutSettingsView: View {
     private var shortVersion: String {
         Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
-        ) as? String ?? "0.2.1"
+        ) as? String ?? "0.2.2"
     }
 
     private var buildNumber: String {
         Bundle.main.object(
             forInfoDictionaryKey: "CFBundleVersion"
-        ) as? String ?? "3"
+        ) as? String ?? "4"
     }
 }
