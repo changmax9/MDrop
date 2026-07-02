@@ -21,12 +21,12 @@ struct ShelfView: View {
     @State private var languageController =
         AppLanguageController.shared
     @State private var hasStartedEntrance = false
-    @State private var surfaceScaleX: CGFloat = 0.18
-    @State private var surfaceScaleY: CGFloat = 0.12
+    @State private var surfaceScaleX: CGFloat = 0.82
+    @State private var surfaceScaleY: CGFloat = 0.82
     @State private var surfaceOpacity: CGFloat = 0
     @State private var entranceCornerRadius: CGFloat = 44
-    @State private var entranceContentOpacity: CGFloat = 0
-    @State private var entranceContentScale: CGFloat = 0.96
+    @State private var entranceContentOpacity: CGFloat = 1
+    @State private var entranceContentScale: CGFloat = 1
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -308,31 +308,15 @@ struct ShelfView: View {
         }
 
         withAnimation(
-            .spring(response: 0.30, dampingFraction: 0.82)
+            .easeOut(
+                duration:
+                    ShelfMotionProfile.reference.appearanceDuration
+            )
         ) {
             surfaceScaleX = 1
+            surfaceScaleY = 1
             surfaceOpacity = 1
             entranceCornerRadius = glassCornerRadius
-        }
-        withAnimation(
-            .spring(response: 0.42, dampingFraction: 0.72)
-        ) {
-            surfaceScaleY = 1
-        }
-
-        do {
-            try await Task.sleep(
-                for: .seconds(
-                    ShelfMotionProfile.reference.jellyContentDelay
-                )
-            )
-        } catch {
-            return
-        }
-        guard !Task.isCancelled else { return }
-        withAnimation(
-            .spring(response: 0.28, dampingFraction: 0.88)
-        ) {
             entranceContentOpacity = 1
             entranceContentScale = 1
         }

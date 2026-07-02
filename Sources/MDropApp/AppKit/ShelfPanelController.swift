@@ -400,7 +400,7 @@ final class ShelfPanelController {
         closeWorkItem = nil
         morphTask?.cancel()
         morphTask = nil
-        store.isLayoutTransitioning = false
+        store.endLayoutTransition()
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
@@ -447,8 +447,7 @@ final class ShelfPanelController {
         timing: ShelfLayoutTransitionTiming
     ) {
         guard morphTask == nil else { return }
-        store.isLayoutTransitioning = true
-        store.isLayoutContentVisible = false
+        store.beginLayoutTransition()
         animateFrame(
             to: targetFrame,
             duration: timing.frameDuration
@@ -468,7 +467,6 @@ final class ShelfPanelController {
             store.shelf.presentationState = targetState
             await Task.yield()
             guard !Task.isCancelled else { return }
-            store.isLayoutContentVisible = true
 
             let remainingDuration = max(
                 0,
@@ -484,7 +482,7 @@ final class ShelfPanelController {
             guard !Task.isCancelled else { return }
             morphTask = nil
             finishFrame(to: targetFrame)
-            store.isLayoutTransitioning = false
+            store.endLayoutTransition()
             onChange()
         }
     }

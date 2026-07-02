@@ -1,4 +1,5 @@
 import AppKit
+import MDropCore
 import SwiftUI
 import Testing
 @testable import MDropApp
@@ -90,5 +91,27 @@ struct AppInteractionConfigurationTests {
 
         #expect(window.isVisible)
         #expect(controller.window === window)
+    }
+
+    @Test("Shelf layout transition never exposes a blank content frame")
+    func shelfLayoutTransitionKeepsContentVisible() {
+        let store = ShelfStore(
+            shelf: ShelfRecord(
+                items: [
+                    .text("Visible during transition")
+                ]
+            ),
+            animatesInitialAppearance: true
+        )
+
+        store.beginLayoutTransition()
+
+        #expect(store.isLayoutTransitioning)
+        #expect(store.isLayoutContentVisible)
+
+        store.endLayoutTransition()
+
+        #expect(!store.isLayoutTransitioning)
+        #expect(store.isLayoutContentVisible)
     }
 }

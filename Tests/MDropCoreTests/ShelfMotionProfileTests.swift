@@ -36,11 +36,16 @@ struct ShelfMotionProfileTests {
         #expect(ShelfMotionProfile.reference.handleHeight == 4)
     }
 
-    @Test("Motion durations stay snappy")
-    func motionDurationsStaySnappy() {
+    @Test("Entrance settles without overshoot or a blank content hold")
+    func entranceSettlesWithoutOvershootOrBlankHold() {
         let profile = ShelfMotionProfile.reference
-        #expect(profile.appearanceDuration == 0.42)
-        #expect(profile.jellyContentDelay == 0.09)
+        #expect(profile.appearanceDuration == 0.24)
+        #expect(profile.jellyContentDelay == 0)
+    }
+
+    @Test("Layout motion durations stay snappy")
+    func layoutMotionDurationsStaySnappy() {
+        let profile = ShelfMotionProfile.reference
         #expect(profile.frameMorphDuration == 0.36)
         #expect(profile.layoutFadeDuration == 0.11)
         #expect(profile.reducedMotionDuration == 0.16)
