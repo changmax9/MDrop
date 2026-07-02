@@ -131,6 +131,23 @@ struct UpdateConfigurationTests {
         #expect(appcast.contains("sparkle:edSignature="))
     }
 
+    @Test("Release checksum is portable outside the build machine")
+    func portableChecksum() throws {
+        let script = try String(
+            contentsOf:
+                repositoryRoot.appending(
+                    path: "script/package_unsigned.sh"
+                ),
+            encoding: .utf8
+        )
+
+        #expect(
+            script.contains(
+                "shasum -a 256 \"$(basename \"$DMG_PATH\")\""
+            )
+        )
+    }
+
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

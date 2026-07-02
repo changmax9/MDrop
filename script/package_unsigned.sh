@@ -28,7 +28,11 @@ hdiutil create \
   -format UDZO \
   "$DMG_PATH"
 
-shasum -a 256 "$DMG_PATH" > "$CHECKSUM_PATH"
+(
+  cd "$DIST_DIR"
+  shasum -a 256 "$(basename "$DMG_PATH")" \
+    > "$(basename "$CHECKSUM_PATH")"
+)
 rm -rf "$STAGING_DIR"
 
 printf '%s\n%s\n%s\n' "$APP_BUNDLE" "$DMG_PATH" "$CHECKSUM_PATH"
