@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusDropView: StatusDropReceiverView?
     private var shelfMenu: NSMenu?
     private var lastURLRoute: (url: URL, date: Date)?
+    private var languageObserver: NSObjectProtocol?
     private lazy var notchDropController = NotchDropController { [weak self] representations in
         self?.coordinator.createShelf(with: representations)
     }
@@ -24,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configureServices()
         configureURLHandler()
         configureStatusItem()
+        observeLanguageChanges()
         configureActivation()
         configureAutomation()
         coordinator.restore()
@@ -44,6 +46,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         shakeMonitor?.stop()
         hotKeyManager?.stop()
         folderMonitor.stop()
+        if let languageObserver {
+            NotificationCenter.default.removeObserver(languageObserver)
+        }
         NSAppleEventManager.shared().removeEventHandler(
             forEventClass: AEEventClass(kInternetEventClass),
             andEventID: AEEventID(kAEGetURL)
@@ -79,43 +84,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         menu.addItem(
-            withTitle: String(localized: "New Shelf"),
+            withTitle: AppLocalization.string("New Shelf"),
             action: #selector(newShelf),
             keyEquivalent: ""
         ).target = self
         menu.addItem(
-            withTitle: String(localized: "Clipboard Shelf"),
+            withTitle: AppLocalization.string("Clipboard Shelf"),
             action: #selector(newClipboardShelf),
             keyEquivalent: ""
         ).target = self
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: String(localized: "Open Last Shelf"),
+            withTitle: AppLocalization.string("Open Last Shelf"),
             action: #selector(openLastShelf),
             keyEquivalent: ""
         ).target = self
         menu.addItem(
-            withTitle: String(localized: "Close All Shelves"),
+            withTitle: AppLocalization.string("Close All Shelves"),
             action: #selector(closeAllShelves),
             keyEquivalent: ""
         ).target = self
         let shelfItem = NSMenuItem(
-            title: String(localized: "Shelves"),
+            title: AppLocalization.string("Shelves"),
             action: nil,
             keyEquivalent: ""
         )
-        let shelfMenu = NSMenu(title: String(localized: "Shelves"))
+        let shelfMenu = NSMenu(
+            title: AppLocalization.string("Shelves")
+        )
         shelfItem.submenu = shelfMenu
         menu.addItem(shelfItem)
         self.shelfMenu = shelfMenu
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: String(localized: "Settings…"),
+            withTitle: AppLocalization.string("Settings…"),
             action: #selector(openSettings),
             keyEquivalent: ","
         ).target = self
         menu.addItem(
-            withTitle: String(localized: "Quit MDrop"),
+            withTitle: AppLocalization.string("Quit MDrop"),
             action: #selector(quit),
             keyEquivalent: "q"
         ).target = self
@@ -133,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let shelves = coordinator.shelvesForMenu()
         guard !shelves.isEmpty else {
             let item = NSMenuItem(
-                title: String(localized: "No Recent Shelves"),
+                title: AppLocalization.string("No Recent Shelves"),
                 action: nil,
                 keyEquivalent: ""
             )
@@ -144,7 +151,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         for shelf in shelves {
             let itemCount = shelf.items.count
-            let fallback = String(localized: "\(itemCount) Items")
+            let fallback = String(
+                format: AppLocalization.string("%lld Items"),
+                locale: AppLocalization.selectedLanguage.locale,
+                Int64(itemCount)
+            )
             let item = NSMenuItem(
                 title: shelf.name.isEmpty ? fallback : shelf.name,
                 action: #selector(openShelfFromMenu(_:)),
@@ -156,10 +167,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if shelf.isPinned {
                 item.image = NSImage(
                     systemSymbolName: "pin.fill",
-                    accessibilityDescription: String(localized: "Pinned")
+                    accessibilityDescription:
+                        AppLocalization.string("Pinned")
                 )
             }
             shelfMenu.addItem(item)
+        }
+    }
+
+    private func observeLanguageChanges() {
+        languageObserver = NotificationCenter.default.addObserver(
+            forName: AppLanguageController.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, let statusItem else { return }
+                statusItem.menu = makeStatusMenu()
+            }
         }
     }
 

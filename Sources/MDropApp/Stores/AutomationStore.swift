@@ -29,7 +29,10 @@ final class AutomationStore {
         ]
         watchedFolders.append(
             WatchFolderDefinition(
-                name: screenshots ? String(localized: "Screenshots") : url.lastPathComponent,
+                name:
+                    screenshots
+                        ? AppLocalization.string("Screenshots")
+                        : url.lastPathComponent,
                 url: url,
                 bookmarkData: bookmark,
                 rule: WatchFolderRule(

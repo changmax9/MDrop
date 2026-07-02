@@ -77,7 +77,11 @@ struct ShelfMenuContent: View {
             }
             Button("Dock to Edge", systemImage: "rectangle.lefthalf.inset.filled", action: onDock)
             Button(
-                store.shelf.isPinned ? "Unpin Shelf" : "Pin Shelf",
+                AppLocalization.string(
+                    store.shelf.isPinned
+                        ? "Unpin Shelf"
+                        : "Pin Shelf"
+                ),
                 systemImage: store.shelf.isPinned ? "pin.slash" : "pin"
             ) {
                 store.shelf.isPinned.toggle()
@@ -151,9 +155,15 @@ struct ShelfMenuContent: View {
 
     private var copyTitle: String {
         guard selectedItems.count == 1, let item = selectedItems.first else {
-            return "Copy \(selectedItems.count) Items"
+            return AppLocalization.format(
+                "Copy %lld Items",
+                Int64(selectedItems.count)
+            )
         }
-        return "Copy “\(item.displayName)”"
+        return AppLocalization.format(
+            "Copy “%@”",
+            item.displayName
+        )
     }
 
     private func applicationName(_ url: URL) -> String {

@@ -60,7 +60,11 @@ struct CompactStackedShelfView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
-            "\(store.shelf.items.count) items, \(store.shelf.items.last?.displayName ?? "")"
+            AppLocalization.format(
+                "%lld items, %@",
+                Int64(store.shelf.items.count),
+                store.shelf.items.last?.displayName ?? ""
+            )
         )
         .animation(stackAnimation, value: store.shelf.items)
         .animation(dragChromeAnimation, value: isDraggingItems)
@@ -81,7 +85,8 @@ struct CompactStackedShelfView: View {
     private var menuButton: some View {
         ShelfCircleMenu(
             systemName: "chevron.down",
-            accessibilityLabel: "Shelf Actions"
+            accessibilityLabel:
+                AppLocalization.string("Shelf Actions")
         ) {
             ShelfMenuContent(
                 store: store,
@@ -168,7 +173,9 @@ struct CompactStackedShelfView: View {
         .buttonStyle(.plain)
         .frame(width: 126, height: 29)
         .help("Show Shelf Details")
-        .accessibilityLabel("Show Shelf Details, \(label)")
+        .accessibilityLabel(
+            AppLocalization.format("Show Shelf Details, %@", label)
+        )
     }
 
     private var label: String {
@@ -176,24 +183,37 @@ struct CompactStackedShelfView: View {
             return store.shelf.name
         }
         guard store.shelf.items.count > 1 else {
-            return store.shelf.items.first?.displayName ?? "Shelf"
+            return store.shelf.items.first?.displayName
+                ?? AppLocalization.string("Shelf")
         }
 
         let urls = store.shelf.items.compactMap(\.fileURL)
         guard urls.count == store.shelf.items.count else {
-            return "\(store.shelf.items.count) Items"
+            return AppLocalization.format(
+                "%lld Items",
+                Int64(store.shelf.items.count)
+            )
         }
         let directoryFlags = urls.map {
             (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory)
                 ?? false
         }
         if directoryFlags.allSatisfy({ $0 }) {
-            return "\(urls.count) Folders"
+            return AppLocalization.format(
+                "%lld Folders",
+                Int64(urls.count)
+            )
         }
         if directoryFlags.allSatisfy({ !$0 }) {
-            return "\(urls.count) Documents"
+            return AppLocalization.format(
+                "%lld Documents",
+                Int64(urls.count)
+            )
         }
-        return "\(urls.count) Items"
+        return AppLocalization.format(
+            "%lld Items",
+            Int64(urls.count)
+        )
     }
 
     private var reduceMotion: Bool {

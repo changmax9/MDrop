@@ -18,6 +18,8 @@ struct ShelfView: View {
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
+    @State private var languageController =
+        AppLanguageController.shared
     @State private var hasStartedEntrance = false
     @State private var surfaceScaleX: CGFloat = 0.18
     @State private var surfaceScaleY: CGFloat = 0.12
@@ -159,6 +161,8 @@ struct ShelfView: View {
                 .accessibilityLabel("Action progress")
             }
         }
+        .environment(languageController)
+        .environment(\.locale, languageController.locale)
     }
 
     @ViewBuilder
@@ -635,7 +639,8 @@ private struct ShelfDetailView: View {
     private var detailActionsMenu: some View {
         ShelfCircleMenu(
             systemName: "slider.horizontal.3",
-            accessibilityLabel: "Shelf Options"
+            accessibilityLabel:
+                AppLocalization.string("Shelf Options")
         ) {
             Button("Dock to Edge", systemImage: "sidebar.left") {
                 onDock()
@@ -806,7 +811,12 @@ private struct ShelfDetailView: View {
 
     private var detailTitle: String {
         let count = store.shelf.items.count
-        return count == 1 ? "1 Document" : "\(count) Documents"
+        return count == 1
+            ? AppLocalization.string("1 Document")
+            : AppLocalization.format(
+                "%lld Documents",
+                Int64(count)
+            )
     }
 
     private var fileURLs: [URL] {
@@ -854,8 +864,11 @@ private struct ShelfDetailView: View {
         else { return nil }
 
         return document.pageCount == 1
-            ? "1 page"
-            : "\(document.pageCount) pages"
+            ? AppLocalization.string("1 page")
+            : AppLocalization.format(
+                "%lld pages",
+                Int64(document.pageCount)
+            )
     }
 
     private func dragItems(
@@ -968,8 +981,16 @@ private struct ShelfDetailModePicker: View {
                 hoveredMode = nil
             }
         }
-        .help(mode == .grid ? "Grid View" : "List View")
-        .accessibilityLabel(mode == .grid ? "Grid View" : "List View")
+        .help(
+            AppLocalization.string(
+                mode == .grid ? "Grid View" : "List View"
+            )
+        )
+        .accessibilityLabel(
+            AppLocalization.string(
+                mode == .grid ? "Grid View" : "List View"
+            )
+        )
     }
 
     private var selectedSurfaceColor: Color {
@@ -1200,7 +1221,12 @@ private struct ShelfItemRow: View {
             Image(systemName: "line.3.horizontal")
                 .foregroundStyle(.tertiary)
                 .draggable(item.id.uuidString)
-                .accessibilityLabel("Reorder \(item.displayName)")
+                .accessibilityLabel(
+                    AppLocalization.format(
+                        "Reorder %@",
+                        item.displayName
+                    )
+                )
         }
         .padding(7)
         .background(
@@ -1222,13 +1248,13 @@ private struct ShelfItemRow: View {
         case .file:
             guard let url = item.fileURL,
                   FileManager.default.fileExists(atPath: url.path) else {
-                return String(localized: "Missing source")
+                return AppLocalization.string("Missing source")
             }
             return url.pathExtension.uppercased()
         case .text:
-            return String(localized: "Text")
+            return AppLocalization.string("Text")
         case .url:
-            return String(localized: "Link")
+            return AppLocalization.string("Link")
         }
     }
 }
@@ -1252,7 +1278,8 @@ private struct ShelfItemIcon: View {
             guard let url = item.fileURL else {
                 return NSImage(
                     systemSymbolName: "exclamationmark.triangle",
-                    accessibilityDescription: String(localized: "Missing source")
+                    accessibilityDescription:
+                        AppLocalization.string("Missing source")
                 ) ?? NSImage()
             }
             return NSWorkspace.shared.icon(forFile: url.path)

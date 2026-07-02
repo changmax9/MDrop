@@ -186,7 +186,7 @@ final class ShelfActionController {
         picker.canChooseFiles = false
         picker.canChooseDirectories = true
         picker.allowsMultipleSelection = false
-        picker.prompt = String(localized: "Choose")
+        picker.prompt = AppLocalization.string("Choose")
         return picker.runModal() == .OK ? picker.url : nil
     }
 
@@ -199,10 +199,16 @@ final class ShelfActionController {
 
     private func requestName(relativeTo panel: NSPanel, initial: String) -> String? {
         let alert = NSAlert()
-        alert.messageText = String(localized: "Rename Item")
-        alert.informativeText = String(localized: "Enter a new file name.")
-        alert.addButton(withTitle: String(localized: "Rename"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.messageText = AppLocalization.string("Rename Item")
+        alert.informativeText = AppLocalization.string(
+            "Enter a new file name."
+        )
+        alert.addButton(
+            withTitle: AppLocalization.string("Rename")
+        )
+        alert.addButton(
+            withTitle: AppLocalization.string("Cancel")
+        )
         let field = NSTextField(string: initial)
         field.frame = NSRect(x: 0, y: 0, width: 280, height: 24)
         alert.accessoryView = field
@@ -213,21 +219,23 @@ final class ShelfActionController {
 extension BuiltinActionID {
     var displayTitle: String {
         switch self {
-        case .systemShare: String(localized: "Share…")
-        case .resizeImages: String(localized: "Resize Images")
-        case .convertImages: String(localized: "Convert to PNG")
-        case .compressImages: String(localized: "Compress Images")
-        case .removeImageMetadata: String(localized: "Remove Metadata")
-        case .stitchImages: String(localized: "Stitch Images")
-        case .extractText: String(localized: "Extract Text")
-        case .createPDF: String(localized: "Create PDF")
-        case .copyText: String(localized: "Copy Text")
-        case .createArchive: String(localized: "Create ZIP Archive")
-        case .copyTo: String(localized: "Copy to…")
-        case .moveTo: String(localized: "Move to…")
-        case .rename: String(localized: "Rename…")
-        case .copyPath: String(localized: "Copy Path")
-        case .moveToTrash: String(localized: "Move to Trash")
+        case .systemShare: AppLocalization.string("Share…")
+        case .resizeImages: AppLocalization.string("Resize Images")
+        case .convertImages: AppLocalization.string("Convert to PNG")
+        case .compressImages: AppLocalization.string("Compress Images")
+        case .removeImageMetadata:
+            AppLocalization.string("Remove Metadata")
+        case .stitchImages: AppLocalization.string("Stitch Images")
+        case .extractText: AppLocalization.string("Extract Text")
+        case .createPDF: AppLocalization.string("Create PDF")
+        case .copyText: AppLocalization.string("Copy Text")
+        case .createArchive:
+            AppLocalization.string("Create ZIP Archive")
+        case .copyTo: AppLocalization.string("Copy to…")
+        case .moveTo: AppLocalization.string("Move to…")
+        case .rename: AppLocalization.string("Rename…")
+        case .copyPath: AppLocalization.string("Copy Path")
+        case .moveToTrash: AppLocalization.string("Move to Trash")
         }
     }
 

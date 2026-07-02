@@ -68,6 +68,8 @@ final class NotchDropController {
 private struct NotchDropView: View {
     let onDrop: ([DropRepresentation]) -> Void
     @State private var isTargeted = false
+    @State private var languageController =
+        AppLanguageController.shared
 
     var body: some View {
         HStack(spacing: 9) {
@@ -93,5 +95,7 @@ private struct NotchDropView: View {
             }
         }
         .padding(5)
+        .environment(languageController)
+        .environment(\.locale, languageController.locale)
     }
 }

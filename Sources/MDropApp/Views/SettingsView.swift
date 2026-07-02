@@ -53,6 +53,8 @@ struct SettingsView: View {
     @State private var selection: SettingsSection? = .general
     @State private var automation = AutomationStore.shared
     @State private var instantActions = InstantActionSettings.shared
+    @State private var languageController =
+        AppLanguageController.shared
     @State private var importsScripts = false
     @State private var importsFolder = false
     @State private var importedFolderIsForScreenshots = false
@@ -140,6 +142,17 @@ struct SettingsView: View {
     private func content(for section: SettingsSection) -> some View {
         switch section {
         case .general:
+            Section("Language & Region") {
+                Picker(
+                    "Language",
+                    selection: $languageController.selection
+                ) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.nativeName)
+                            .tag(language)
+                    }
+                }
+            }
             Section("Startup") {
                 Toggle("Launch MDrop at login", isOn: $launchAtLogin)
                 Toggle("Show MDrop in the Dock", isOn: $showDockIcon)
