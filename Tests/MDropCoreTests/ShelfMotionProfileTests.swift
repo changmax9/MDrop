@@ -13,6 +13,18 @@ struct ShelfMotionProfileTests {
             ShelfMotionProfile.reference.emptyGlassBody
                 == .init(width: 198, height: 207)
         )
+        #expect(
+            ShelfMotionProfile.reference.detailPanel
+                == .init(width: 400, height: 207)
+        )
+        #expect(
+            ShelfMotionProfile.reference.detailPanel.width
+                > CompactShelfLayout.panelMetrics(itemCount: 1).width
+        )
+        #expect(
+            ShelfMotionProfile.reference.detailPanel.height
+                == CompactShelfLayout.panelMetrics(itemCount: 1).height
+        )
         #expect(ShelfMotionProfile.reference.emptyCornerRadius == 28)
         #expect(ShelfMotionProfile.reference.emptyLabelPointSize == 15)
         #expect(ShelfMotionProfile.reference.controlDiameter == 32)
@@ -42,5 +54,29 @@ struct ShelfMotionProfileTests {
         let profile = ShelfMotionProfile.reference
         #expect(profile.marqueeInitialDelay == 0.7)
         #expect(profile.marqueePointsPerSecond == 24)
+    }
+
+    @Test("Handle motion respects Reduce Motion")
+    func handleMotionRespectsReduceMotion() {
+        let profile = ShelfMotionProfile.reference
+
+        #expect(
+            profile.handleAnimationDuration(
+                requested: true,
+                reduceMotion: false
+            ) == 0.14
+        )
+        #expect(
+            profile.handleAnimationDuration(
+                requested: true,
+                reduceMotion: true
+            ) == 0
+        )
+        #expect(
+            profile.handleAnimationDuration(
+                requested: false,
+                reduceMotion: false
+            ) == 0
+        )
     }
 }

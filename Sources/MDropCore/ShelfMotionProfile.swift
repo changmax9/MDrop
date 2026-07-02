@@ -3,6 +3,7 @@ import Foundation
 public struct ShelfMotionProfile: Equatable, Sendable {
     public var emptyPanel: ShelfPanelMetrics
     public var emptyGlassBody: ShelfPanelMetrics
+    public var detailPanel: ShelfPanelMetrics
     public var emptyCornerRadius: Double
     public var emptyLabelPointSize: Double
     public var controlDiameter: Double
@@ -26,6 +27,7 @@ public struct ShelfMotionProfile: Equatable, Sendable {
     public init(
         emptyPanel: ShelfPanelMetrics,
         emptyGlassBody: ShelfPanelMetrics,
+        detailPanel: ShelfPanelMetrics,
         emptyCornerRadius: Double,
         emptyLabelPointSize: Double,
         controlDiameter: Double,
@@ -48,6 +50,7 @@ public struct ShelfMotionProfile: Equatable, Sendable {
     ) {
         self.emptyPanel = emptyPanel
         self.emptyGlassBody = emptyGlassBody
+        self.detailPanel = detailPanel
         self.emptyCornerRadius = emptyCornerRadius
         self.emptyLabelPointSize = emptyLabelPointSize
         self.controlDiameter = controlDiameter
@@ -72,6 +75,7 @@ public struct ShelfMotionProfile: Equatable, Sendable {
     public static let reference = Self(
         emptyPanel: .init(width: 198, height: 207),
         emptyGlassBody: .init(width: 198, height: 207),
+        detailPanel: .init(width: 400, height: 207),
         emptyCornerRadius: 28,
         emptyLabelPointSize: 15,
         controlDiameter: 32,
@@ -92,4 +96,11 @@ public struct ShelfMotionProfile: Equatable, Sendable {
         stackDuration: 0.28,
         closeDuration: 0.10
     )
+
+    public func handleAnimationDuration(
+        requested: Bool,
+        reduceMotion: Bool
+    ) -> TimeInterval {
+        requested && !reduceMotion ? hoverChromeDuration : 0
+    }
 }

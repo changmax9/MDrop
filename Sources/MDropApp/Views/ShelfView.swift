@@ -1,5 +1,6 @@
 import AppKit
 import MDropCore
+import PDFKit
 import SwiftUI
 
 struct ShelfView: View {
@@ -28,33 +29,32 @@ struct ShelfView: View {
     var body: some View {
         GlassEffectContainer(spacing: 10) {
             ZStack {
-                Color.clear
-                    .contentShape(
-                        .rect(cornerRadius: animatedCornerRadius)
-                    )
-                    .glassEffect(
-                        .clear,
-                        in: .rect(cornerRadius: animatedCornerRadius)
-                    )
-                    .glassEffectID(
-                        store.shelf.id,
-                        in: glassNamespace
-                    )
-                    .scaleEffect(
-                        x: resolvedSurfaceScaleX,
-                        y: resolvedSurfaceScaleY
-                    )
-                    .opacity(resolvedSurfaceOpacity)
-
                 shelfContent
                     .opacity(resolvedContentOpacity)
                     .scaleEffect(resolvedContentScale)
+                    .allowsHitTesting(!store.isLayoutTransitioning)
                     .animation(
                         layoutVisibilityAnimation,
                         value: store.isLayoutContentVisible
                     )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(
+                .rect(cornerRadius: animatedCornerRadius)
+            )
+            .glassEffect(
+                .clear,
+                in: .rect(cornerRadius: animatedCornerRadius)
+            )
+            .glassEffectID(
+                store.shelf.id,
+                in: glassNamespace
+            )
+            .scaleEffect(
+                x: resolvedSurfaceScaleX,
+                y: resolvedSurfaceScaleY
+            )
+            .opacity(resolvedSurfaceOpacity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .opacity(store.isClosing ? 0 : 1)
@@ -62,14 +62,6 @@ struct ShelfView: View {
         .task {
             await runEntrance()
         }
-        .animation(
-            reduceMotion
-                ? .linear(duration: 0.01)
-                : .snappy(
-                    duration: ShelfMotionProfile.reference.stackDuration
-                ),
-            value: store.shelf.presentationState
-        )
         .animation(
             reduceMotion
                 ? .linear(duration: 0.01)
@@ -126,12 +118,6 @@ struct ShelfView: View {
                     )
                     .opacity(resolvedSurfaceOpacity)
                     .allowsHitTesting(false)
-            }
-        }
-        .overlay(alignment: .top) {
-            if showsDragHandle {
-                ShelfDragHandle(store: store)
-                    .padding(.top, 8)
             }
         }
         .alert(
@@ -270,24 +256,17 @@ struct ShelfView: View {
             : glassCornerRadius
     }
 
-    private var showsDragHandle: Bool {
-        switch store.shelf.presentationState {
-        case .empty, .compact, .instantActions:
-            true
-        case .detail, .docked:
-            false
-        }
-    }
-
     private var layoutVisibilityAnimation: Animation {
-        reduceMotion
+        let timing = ShelfLayoutTransitionTiming.resolve(
+            profile: .reference,
+            reduceMotion: reduceMotion
+        )
+        return reduceMotion
             ? .linear(
-                duration:
-                    ShelfMotionProfile.reference.reducedMotionDuration
+                duration: timing.contentFadeDuration
             )
             : .easeOut(
-                duration:
-                    ShelfMotionProfile.reference.layoutFadeDuration
+                duration: timing.contentFadeDuration
             )
     }
 
@@ -435,32 +414,45 @@ struct ShelfCircleControlLabel: View {
     @State private var internallyHovered = false
 
     var body: some View {
-        Image(systemName: systemName)
-            .font(
-                .system(
-                    size: ShelfMotionProfile.reference.controlIconPointSize,
-                    weight: .semibold
+        ZStack {
+            Circle()
+                .fill(surfaceColor)
+                .glassEffect(.regular, in: .circle)
+                .overlay {
+                    Circle()
+                        .stroke(outlineColor, lineWidth: 0.5)
+                        .allowsHitTesting(false)
+                }
+                .shadow(
+                    color: .black.opacity(
+                        isHovered
+                            ? hoverShadowOpacity
+                            : restingShadowOpacity
+                    ),
+                    radius: isHovered ? 7 : 4,
+                    y: isHovered ? 3 : 2
                 )
-            )
-            .foregroundStyle(iconColor)
+
+            Image(systemName: systemName)
+                .font(
+                    .system(
+                        size:
+                            ShelfMotionProfile.reference
+                                .controlIconPointSize,
+                        weight: .semibold
+                    )
+                )
+                .foregroundStyle(iconColor)
+                .frame(
+                    width:
+                        ShelfMotionProfile.reference.controlDiameter,
+                    height:
+                        ShelfMotionProfile.reference.controlDiameter
+                )
+        }
             .frame(
                 width: ShelfMotionProfile.reference.controlDiameter,
                 height: ShelfMotionProfile.reference.controlDiameter
-            )
-            .background(
-                surfaceColor,
-                in: .circle
-            )
-            .glassEffect(.regular, in: .circle)
-            .overlay {
-                Circle()
-                    .stroke(outlineColor, lineWidth: 0.5)
-                    .allowsHitTesting(false)
-            }
-            .shadow(
-                color: .black.opacity(isHovered ? 0.19 : 0.025),
-                radius: isHovered ? 5.5 : 1,
-                y: isHovered ? 2.5 : 0.5
             )
             .contentShape(.circle)
             .onHover { hovering in
@@ -497,40 +489,54 @@ struct ShelfCircleControlLabel: View {
             ? .white.opacity(0.11)
             : .black.opacity(0.07)
     }
+
+    private var hoverShadowOpacity: Double {
+        colorScheme == .dark ? 0.48 : 0.24
+    }
+
+    private var restingShadowOpacity: Double {
+        colorScheme == .dark ? 0.34 : 0.13
+    }
 }
 
-struct ShelfDragHandle: View {
-    @Bindable var store: ShelfStore
-    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+struct ShelfCircleMenu<Content: View>: View {
+    let systemName: String
+    let accessibilityLabel: String
+    private let content: Content
+    @State private var isHovering = false
+
+    init(
+        systemName: String,
+        accessibilityLabel: String,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.systemName = systemName
+        self.accessibilityLabel = accessibilityLabel
+        self.content = content()
+    }
 
     var body: some View {
-        Capsule()
-            .fill(.secondary.opacity(0.55))
-            .frame(
-                width: store.isWindowDragging
-                    ? ShelfMotionProfile.reference.handleDraggingWidth
-                    : ShelfMotionProfile.reference.handleHoverWidth,
-                height: ShelfMotionProfile.reference.handleHeight
+        Menu {
+            content
+        } label: {
+            ShelfCircleControlLabel(
+                systemName: systemName,
+                externallyHovered: isHovering
             )
-            .opacity(
-                store.isShelfHovered || store.isWindowDragging ? 1 : 0
-            )
-            .animation(handleAnimation, value: store.isShelfHovered)
-            .animation(handleAnimation, value: store.isWindowDragging)
-            .accessibilityHidden(true)
-    }
-
-    private var handleAnimation: Animation {
-        reduceMotion
-            ? .linear(duration: 0.08)
-            : .spring(response: 0.24, dampingFraction: 0.84)
-    }
-
-    private var reduceMotion: Bool {
-        reduceShelfMotion
-            || systemReduceMotion
-            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .frame(
+            width: ShelfMotionProfile.reference.controlDiameter,
+            height: ShelfMotionProfile.reference.controlDiameter
+        )
+        .contentShape(.circle)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .help(accessibilityLabel)
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 
@@ -543,7 +549,7 @@ private struct ShelfDetailView: View {
     let onScript: (ScriptDefinition) -> Void
     let onChange: () -> Void
     let onClose: () -> Void
-    @State private var viewMode: ShelfDetailViewMode = .grid
+    @State private var viewMode: ShelfDetailViewMode = .list
     @State private var automation = AutomationStore.shared
 
     var body: some View {
@@ -570,158 +576,136 @@ private struct ShelfDetailView: View {
 
                 detailActionsMenu
 
-                Button {
-                    viewMode = .grid
-                } label: {
-                    ShelfCircleControlLabel(
-                        systemName: "square.grid.2x2",
-                        externallyHovered: viewMode == .grid
-                    )
-                }
-                .buttonStyle(.plain)
-                .help("Grid View")
-
-                Button {
-                    viewMode = .list
-                } label: {
-                    ShelfCircleControlLabel(
-                        systemName: "list.bullet",
-                        externallyHovered: viewMode == .list
-                    )
-                }
-                .buttonStyle(.plain)
-                .help("List View")
+                ShelfDetailModePicker(selection: $viewMode)
             }
-            .padding(.horizontal, 9)
+            .padding(.horizontal, 7)
             .padding(.top, 7)
 
-            HStack(spacing: 12) {
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: viewMode == .grid ? 14 : 8) {
-                        ForEach(store.shelf.items) { item in
-                            detailItem(item)
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                }
-                .scrollIndicators(.hidden)
-
-                Button(action: revealInFinder) {
-                    VStack(spacing: 5) {
-                        Image(systemName: "arrowshape.turn.up.right.circle")
-                            .font(.system(size: 35, weight: .light))
-                        Text("Reveal in Finder")
-                            .font(.system(size: 10))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(.secondary)
-                    .frame(width: 92)
-                }
-                .buttonStyle(.plain)
-                .disabled(fileURLs.isEmpty)
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 10)
+            detailContent
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var detailActionsMenu: some View {
-        ZStack {
-            ShelfCircleControlLabel(systemName: "slider.horizontal.3")
-                .allowsHitTesting(false)
+    @ViewBuilder
+    private var detailContent: some View {
+        if viewMode == .grid {
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: 18) {
+                    ForEach(store.shelf.items) { item in
+                        detailGridItem(item)
+                    }
 
-            Menu {
-                Button("Dock to Edge", systemImage: "sidebar.left") {
-                    onDock()
+                    revealInFinderTile
                 }
-                Menu("Actions") {
-                    ForEach(availableActions, id: \.rawValue) { action in
-                        Button(
-                            action.displayTitle,
-                            systemImage: action.symbolName
-                        ) {
-                            onAction(action)
-                        }
-                    }
-                }
-                if !automation.customActions.isEmpty {
-                    Menu("Custom Actions") {
-                        ForEach(automation.customActions) { preset in
-                            Button(preset.name) {
-                                onPreset(preset)
-                            }
-                        }
-                    }
-                }
-                if !automation.scripts.isEmpty {
-                    Menu("Scripts") {
-                        ForEach(automation.scripts) { script in
-                            Button(script.name) {
-                                onScript(script)
-                            }
-                        }
-                    }
-                }
-                Divider()
-                Button("Close Shelf", systemImage: "xmark", role: .destructive) {
-                    onClose()
-                }
-            } label: {
-                Color.clear
-                    .frame(
-                        width:
-                            ShelfMotionProfile.reference.controlDiameter,
-                        height:
-                            ShelfMotionProfile.reference.controlDiameter
-                    )
-                    .contentShape(.circle)
+                .padding(.horizontal, 14)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
+            .scrollIndicators(.hidden)
+            .padding(.bottom, 8)
+        } else {
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 0) {
+                    ForEach(store.shelf.items) { item in
+                        detailListItem(item)
+                    }
+                }
+                .padding(.top, 14)
+            }
+            .scrollIndicators(.hidden)
+            .padding(.bottom, 8)
         }
-        .frame(
-            width: ShelfMotionProfile.reference.controlDiameter,
-            height: ShelfMotionProfile.reference.controlDiameter
-        )
-        .help("Shelf Options")
     }
 
-    @ViewBuilder
-    private func detailItem(_ item: ShelfItemRecord) -> some View {
-        Group {
-            if viewMode == .grid {
-                VStack(spacing: 3) {
-                    ShelfThumbnailView(
-                        item: item,
-                        size: CGSize(width: 52, height: 64)
-                    )
-                    .onDrag {
-                        makeItemProvider(for: item)
+    private var revealInFinderTile: some View {
+        Button(action: revealInFinder) {
+            VStack(spacing: 8) {
+                Image(systemName: "arrowshape.turn.up.right.circle")
+                    .font(.system(size: 46, weight: .light))
+                Text("Reveal in Finder")
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.secondary)
+            .frame(width: 112)
+            .padding(.top, 24)
+        }
+        .buttonStyle(.plain)
+        .disabled(fileURLs.isEmpty)
+    }
+
+    private var detailActionsMenu: some View {
+        ShelfCircleMenu(
+            systemName: "slider.horizontal.3",
+            accessibilityLabel: "Shelf Options"
+        ) {
+            Button("Dock to Edge", systemImage: "sidebar.left") {
+                onDock()
+            }
+            Menu("Actions") {
+                ForEach(availableActions, id: \.rawValue) { action in
+                    Button(
+                        action.displayTitle,
+                        systemImage: action.symbolName
+                    ) {
+                        onAction(action)
                     }
-                    Text(item.displayName)
-                        .font(.system(size: 9))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(width: 78)
                 }
-            } else {
-                HStack(spacing: 7) {
-                    ShelfItemIcon(item: item, size: 38)
-                        .onDrag {
-                            makeItemProvider(for: item)
+            }
+            if !automation.customActions.isEmpty {
+                Menu("Custom Actions") {
+                    ForEach(automation.customActions) { preset in
+                        Button(preset.name) {
+                            onPreset(preset)
                         }
-                    Text(item.displayName)
-                        .font(.system(size: 10))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(width: 92, alignment: .leading)
+                    }
                 }
-                .padding(6)
-                .glassEffect(.regular, in: .rect(cornerRadius: 11))
+            }
+            if !automation.scripts.isEmpty {
+                Menu("Scripts") {
+                    ForEach(automation.scripts) { script in
+                        Button(script.name) {
+                            onScript(script)
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button("Close Shelf", systemImage: "xmark", role: .destructive) {
+                onClose()
             }
         }
+    }
+
+    private func detailGridItem(_ item: ShelfItemRecord) -> some View {
+        VStack(spacing: 2) {
+            ZStack {
+                ShelfThumbnailView(
+                    item: item,
+                    size: CGSize(width: 52, height: 68)
+                )
+                ShelfItemsDragSourceView(
+                    items: dragItems(startingWith: item),
+                    onDraggingChanged: { _ in }
+                )
+                .frame(width: 52, height: 68)
+            }
+            Text(item.displayName)
+                .font(.system(size: 13))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: 110)
+            Text(sizeSummary(for: item))
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(width: 110)
+        .padding(.top, 10)
+        .background(
+            store.selectedItemIDs.contains(item.id)
+                ? Color.accentColor.opacity(0.11)
+                : .clear,
+            in: .rect(cornerRadius: 10)
+        )
         .contentShape(.rect)
         .onTapGesture {
             store.toggleSelection(
@@ -729,6 +713,79 @@ private struct ShelfDetailView: View {
                 extending:
                     NSEvent.modifierFlags.contains(.command)
             )
+        }
+        .contextMenu {
+            Button("Copy Path") {
+                if let url = item.fileURL {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(
+                        url.path,
+                        forType: .string
+                    )
+                }
+            }
+            Button("Remove", role: .destructive) {
+                store.remove([item.id])
+                onChange()
+            }
+        }
+    }
+
+    private func detailListItem(_ item: ShelfItemRecord) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                ShelfThumbnailView(
+                    item: item,
+                    size: CGSize(width: 20, height: 28)
+                )
+                ShelfItemsDragSourceView(
+                    items: dragItems(startingWith: item),
+                    onDraggingChanged: { _ in }
+                )
+                .frame(width: 28, height: 30)
+            }
+            .frame(width: 28, height: 30)
+
+            Text(item.displayName)
+                .font(.system(size: 13))
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: 12)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(sizeSummary(for: item))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if let secondaryMetadata = secondaryMetadata(for: item) {
+                    Text(secondaryMetadata)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.horizontal, 19)
+        .padding(.vertical, 6)
+        .background(
+            store.selectedItemIDs.contains(item.id)
+                ? Color.accentColor.opacity(0.11)
+                : .clear,
+            in: .rect(cornerRadius: 10)
+        )
+        .contentShape(.rect)
+        .onTapGesture {
+            store.toggleSelection(
+                item.id,
+                extending:
+                    NSEvent.modifierFlags.contains(.command)
+            )
+        }
+        .onTapGesture(count: 2) {
+            if let url = item.fileURL {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
         }
         .contextMenu {
             Button("Copy Path") {
@@ -757,22 +814,58 @@ private struct ShelfDetailView: View {
     }
 
     private var sizeSummary: String {
-        let byteCount = fileURLs.reduce(Int64.zero) { partial, url in
-            let values = try? url.resourceValues(
-                forKeys: [
-                    .fileSizeKey,
-                    .totalFileAllocatedSizeKey
-                ]
-            )
-            return partial + Int64(
-                values?.totalFileAllocatedSize
-                    ?? values?.fileSize
-                    ?? 0
-            )
+        let totalByteCount = store.shelf.items.reduce(Int64.zero) {
+            $0 + byteCount(for: $1)
         }
         return ByteCountFormatter.string(
-            fromByteCount: byteCount,
+            fromByteCount: totalByteCount,
             countStyle: .file
+        )
+    }
+
+    private func sizeSummary(for item: ShelfItemRecord) -> String {
+        ByteCountFormatter.string(
+            fromByteCount: byteCount(for: item),
+            countStyle: .file
+        )
+    }
+
+    private func byteCount(for item: ShelfItemRecord) -> Int64 {
+        guard let url = item.fileURL else { return 0 }
+        let values = try? url.resourceValues(
+            forKeys: [
+                .fileSizeKey,
+                .totalFileAllocatedSizeKey
+            ]
+        )
+        return Int64(
+            values?.totalFileAllocatedSize
+                ?? values?.fileSize
+                ?? 0
+        )
+    }
+
+    private func secondaryMetadata(
+        for item: ShelfItemRecord
+    ) -> String? {
+        guard let url = item.fileURL,
+              url.pathExtension.lowercased() == "pdf",
+              let document = PDFDocument(url: url)
+        else { return nil }
+
+        return document.pageCount == 1
+            ? "1 page"
+            : "\(document.pageCount) pages"
+    }
+
+    private func dragItems(
+        startingWith item: ShelfItemRecord
+    ) -> [ShelfItemRecord] {
+        ShelfDragSelection.items(
+            from: store.shelf.items,
+            selectedItemIDs: store.selectedItemIDs,
+            initiatingItemID: item.id,
+            dragsEntireShelf: false
         )
     }
 
@@ -799,6 +892,60 @@ private struct ShelfDetailView: View {
 private enum ShelfDetailViewMode {
     case grid
     case list
+}
+
+private struct ShelfDetailModePicker: View {
+    @Binding var selection: ShelfDetailViewMode
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            modeButton(.grid, systemName: "square.grid.2x2")
+            modeButton(.list, systemName: "list.bullet")
+        }
+        .frame(width: 60, height: 32)
+        .background(.black.opacity(0.025), in: .capsule)
+        .glassEffect(.regular, in: .capsule)
+        .clipShape(Capsule())
+    }
+
+    private func modeButton(
+        _ mode: ShelfDetailViewMode,
+        systemName: String
+    ) -> some View {
+        Button {
+            selection = mode
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.78))
+                .frame(width: 30, height: 32)
+                .background {
+                    if selection == mode {
+                        Circle()
+                            .fill(selectedSurfaceColor)
+                            .overlay {
+                                Circle()
+                                    .stroke(
+                                        .primary.opacity(0.07),
+                                        lineWidth: 0.5
+                                    )
+                            }
+                            .padding(1)
+                    }
+                }
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .help(mode == .grid ? "Grid View" : "List View")
+        .accessibilityLabel(mode == .grid ? "Grid View" : "List View")
+    }
+
+    private var selectedSurfaceColor: Color {
+        colorScheme == .dark
+            ? .white.opacity(0.10)
+            : .black.opacity(0.07)
+    }
 }
 
 private struct ActionMenu: View {
@@ -932,14 +1079,28 @@ private struct DockedShelfView: View {
     let onClose: () -> Void
 
     var body: some View {
+        let dragItems = ShelfDragSelection.items(
+            from: store.shelf.items,
+            selectedItemIDs: store.selectedItemIDs,
+            initiatingItemID: store.shelf.items.first?.id,
+            dragsEntireShelf: true
+        )
+
         VStack(spacing: 8) {
             Button(action: onUndock) {
                 Image(systemName: store.shelf.dockedEdge == .left ? "chevron.right" : "chevron.left")
             }
             .buttonStyle(.glass)
             ForEach(Array(store.shelf.items.prefix(3))) { item in
-                ShelfItemIcon(item: item, size: 46)
-                    .onDrag { makeItemProvider(for: item) }
+                ZStack {
+                    ShelfItemIcon(item: item, size: 46)
+                    ShelfItemsDragSourceView(
+                        items: dragItems,
+                        onDraggingChanged: { _ in }
+                    )
+                    .frame(width: 46, height: 46)
+                }
+                .frame(width: 46, height: 46)
             }
             Spacer()
             Button(action: onClose) {

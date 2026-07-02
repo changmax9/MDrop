@@ -3,35 +3,18 @@ set -euo pipefail
 
 APP_NAME="MDrop"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DERIVED_DATA="$ROOT_DIR/DerivedData-Release"
 DIST_DIR="$ROOT_DIR/dist/release"
 STAGING_DIR="$DIST_DIR/dmg-root"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 DMG_PATH="$DIST_DIR/$APP_NAME-0.1.0-arm64-unsigned.dmg"
 CHECKSUM_PATH="$DMG_PATH.sha256"
 
-rm -rf "$DERIVED_DATA" "$DIST_DIR"
+rm -rf "$DIST_DIR"
 mkdir -p "$STAGING_DIR"
 
-xcodebuild \
-  -project "$ROOT_DIR/MDrop.xcodeproj" \
-  -scheme "$APP_NAME" \
-  -configuration Release \
-  -derivedDataPath "$DERIVED_DATA" \
-  CODE_SIGNING_ALLOWED=NO \
-  build
-
-cp -R "$DERIVED_DATA/Build/Products/Release/$APP_NAME.app" "$APP_BUNDLE"
-find "$APP_BUNDLE/Contents" -type d -name '*.framework' -print0 |
-  while IFS= read -r -d '' framework; do
-    codesign --force --sign - "$framework"
-  done
-codesign \
-  --force \
-  --sign - \
-  --requirements "$ROOT_DIR/Config/MDrop.requirements" \
-  "$APP_BUNDLE"
-codesign --verify --deep --strict "$APP_BUNDLE"
+MDROP_CONFIGURATION=Release \
+  "$ROOT_DIR/script/build_and_run.sh" --build-only
+cp -R "$ROOT_DIR/dist/$APP_NAME.app" "$APP_BUNDLE"
 
 cp -R "$APP_BUNDLE" "$STAGING_DIR/$APP_NAME.app"
 cp "$ROOT_DIR/Distribution/README.txt" "$STAGING_DIR/README.txt"

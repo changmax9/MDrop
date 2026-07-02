@@ -22,6 +22,10 @@ let package = Package(
         .testTarget(
             name: "MDropCoreTests",
             dependencies: ["MDropCore"]
+        ),
+        .testTarget(
+            name: "MDropAppTests",
+            dependencies: ["MDropApp", "MDropCore"]
         )
     ]
 )

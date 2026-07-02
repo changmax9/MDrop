@@ -12,9 +12,39 @@ final class ShelfWindowDragSurfaceView: NSView {
     var layoutProvider: () -> ShelfDragLayout = {
         ShelfDragLayout(interactiveRegions: [])
     }
-    var onDraggingChanged: (Bool) -> Void = { _ in }
-    var onHoverChanged: (Bool) -> Void = { _ in }
+    var showsHandleProvider: () -> Bool = { true }
+    var reducesMotionProvider: () -> Bool = {
+        UserDefaults.standard.bool(forKey: "reduceShelfMotion")
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
     private var hoverTrackingArea: NSTrackingArea?
+    private let handleLayer = CALayer()
+    private var isHovered = false
+    private var isDraggingWindow = false
+    private var dragStartPointerLocation: CGPoint?
+    private var dragStartWindowOrigin: CGPoint?
+    private var handleTargetWidth: CGFloat = 0
+    private var handleTargetOpacity: Float = 0
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configureHandle()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureHandle()
+    }
+
+    override func layout() {
+        super.layout()
+        updateHandle(animated: false)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateHandleColor()
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -36,11 +66,13 @@ final class ShelfWindowDragSurfaceView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        onHoverChanged(true)
+        isHovered = true
+        updateHandle(animated: true)
     }
 
     override func mouseExited(with event: NSEvent) {
-        onHoverChanged(false)
+        isHovered = false
+        updateHandle(animated: true)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -51,14 +83,103 @@ final class ShelfWindowDragSurfaceView: NSView {
             break
         }
 
-        let localPoint = convert(point, from: superview)
-        return layoutProvider().isInteractive(localPoint) ? nil : self
+        return layoutProvider().isInteractive(point) ? nil : self
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
     }
 
     override func mouseDown(with event: NSEvent) {
-        onDraggingChanged(true)
-        window?.performDrag(with: event)
-        onDraggingChanged(false)
+        guard let window else { return }
+        dragStartPointerLocation = NSEvent.mouseLocation
+        dragStartWindowOrigin = window.frame.origin
+        isDraggingWindow = true
+        updateHandle(animated: true)
+        CATransaction.flush()
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window,
+              let dragStartPointerLocation,
+              let dragStartWindowOrigin
+        else { return }
+
+        window.setFrameOrigin(
+            ShelfPanelGeometry.draggedOrigin(
+                from: dragStartWindowOrigin,
+                pointerStart: dragStartPointerLocation,
+                pointerCurrent: NSEvent.mouseLocation
+            )
+        )
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        finishWindowDrag()
+    }
+
+    private func finishWindowDrag() {
+        dragStartPointerLocation = nil
+        dragStartWindowOrigin = nil
+        guard isDraggingWindow else { return }
+        isDraggingWindow = false
+        updateHandle(animated: true)
+    }
+
+    private func configureHandle() {
+        wantsLayer = true
+        handleLayer.cornerRadius =
+            CGFloat(ShelfMotionProfile.reference.handleHeight) / 2
+        handleLayer.opacity = 0
+        layer?.addSublayer(handleLayer)
+        updateHandleColor()
+    }
+
+    private func updateHandleColor() {
+        handleLayer.backgroundColor = NSColor.secondaryLabelColor
+            .withAlphaComponent(0.55)
+            .cgColor
+    }
+
+    private func updateHandle(animated: Bool) {
+        let isVisible = showsHandleProvider()
+            && (isHovered || isDraggingWindow)
+        let width = isDraggingWindow
+            ? CGFloat(ShelfMotionProfile.reference.handleDraggingWidth)
+            : CGFloat(ShelfMotionProfile.reference.handleHoverWidth)
+        let opacity: Float = isVisible ? 1 : 0
+        let height =
+            CGFloat(ShelfMotionProfile.reference.handleHeight)
+
+        handleLayer.position = CGPoint(
+            x: bounds.midX,
+            y: bounds.maxY - 10
+        )
+        guard width != handleTargetWidth
+                || opacity != handleTargetOpacity
+                || handleLayer.bounds.height != height
+        else { return }
+
+        handleTargetWidth = width
+        handleTargetOpacity = opacity
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(
+            ShelfMotionProfile.reference.handleAnimationDuration(
+                requested: animated,
+                reduceMotion: reducesMotionProvider()
+            )
+        )
+        CATransaction.setAnimationTimingFunction(
+            CAMediaTimingFunction(name: .easeOut)
+        )
+        handleLayer.bounds = CGRect(
+            x: 0,
+            y: 0,
+            width: width,
+            height: height
+        )
+        handleLayer.opacity = opacity
+        CATransaction.commit()
     }
 }
 
@@ -142,7 +263,10 @@ final class ShelfPanelController {
         width: CGFloat(ShelfMotionProfile.reference.emptyPanel.width),
         height: CGFloat(ShelfMotionProfile.reference.emptyPanel.height)
     )
-    private let detailSize = NSSize(width: 430, height: 180)
+    private let detailSize = NSSize(
+        width: CGFloat(ShelfMotionProfile.reference.detailPanel.width),
+        height: CGFloat(ShelfMotionProfile.reference.detailPanel.height)
+    )
     private let dockedSize = NSSize(width: 92, height: 250)
 
     init(
@@ -211,11 +335,14 @@ final class ShelfPanelController {
                 panelSize: dropContainer.bounds.size
             )
         }
-        dragSurface.onDraggingChanged = { [weak store] dragging in
-            store?.isWindowDragging = dragging
-        }
-        dragSurface.onHoverChanged = { [weak store] hovering in
-            store?.isShelfHovered = hovering
+        dragSurface.showsHandleProvider = { [weak store] in
+            guard let store else { return false }
+            switch store.shelf.presentationState {
+            case .empty, .compact, .instantActions:
+                return true
+            case .detail, .docked:
+                return false
+            }
         }
         dropContainer.addSubview(hostingView)
         dropContainer.addSubview(
@@ -273,6 +400,7 @@ final class ShelfPanelController {
         closeWorkItem = nil
         morphTask?.cancel()
         morphTask = nil
+        store.isLayoutTransitioning = false
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
@@ -282,6 +410,7 @@ final class ShelfPanelController {
     }
 
     func refreshSize() {
+        guard morphTask == nil else { return }
         resize(to: Self.size(
             for: store.shelf.presentationState,
             empty: emptySize,
@@ -292,7 +421,6 @@ final class ShelfPanelController {
     }
 
     private func toggleDetail() {
-        guard morphTask == nil else { return }
         let targetState: ShelfPresentationState =
             store.shelf.presentationState == .detail ? .compact : .detail
         let targetSize = Self.size(
@@ -304,31 +432,47 @@ final class ShelfPanelController {
             detail: detailSize,
             docked: dockedSize
         )
-        store.isLayoutContentVisible = false
-        resize(to: targetSize)
+        beginLayoutTransition(
+            to: targetState,
+            dockedEdge: nil,
+            targetFrame: centeredFrame(to: targetSize),
+            timing: layoutTransitionTiming
+        )
+    }
 
+    private func beginLayoutTransition(
+        to targetState: ShelfPresentationState,
+        dockedEdge: DockedEdge?,
+        targetFrame: CGRect,
+        timing: ShelfLayoutTransitionTiming
+    ) {
+        guard morphTask == nil else { return }
+        store.isLayoutTransitioning = true
+        store.isLayoutContentVisible = false
+        animateFrame(
+            to: targetFrame,
+            duration: timing.frameDuration
+        )
         morphTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let fadeDuration = reduceMotion
-                ? ShelfMotionProfile.reference.reducedMotionDuration
-                : ShelfMotionProfile.reference.layoutFadeDuration
             do {
-                try await Task.sleep(for: .seconds(fadeDuration))
+                try await Task.sleep(
+                    for: .seconds(timing.contentSwapDelay)
+                )
             } catch {
                 return
             }
             guard !Task.isCancelled else { return }
 
+            store.shelf.dockedEdge = dockedEdge
             store.shelf.presentationState = targetState
             await Task.yield()
             guard !Task.isCancelled else { return }
             store.isLayoutContentVisible = true
-            onChange()
 
             let remainingDuration = max(
                 0,
-                ShelfMotionProfile.reference.frameMorphDuration
-                    - fadeDuration
+                timing.completionDelay - timing.contentSwapDelay
             )
             do {
                 try await Task.sleep(
@@ -339,6 +483,9 @@ final class ShelfPanelController {
             }
             guard !Task.isCancelled else { return }
             morphTask = nil
+            finishFrame(to: targetFrame)
+            store.isLayoutTransitioning = false
+            onChange()
         }
     }
 
@@ -435,45 +582,93 @@ final class ShelfPanelController {
     }
 
     private func toggleDock() {
+        guard morphTask == nil else { return }
         if store.shelf.presentationState == .docked {
-            store.shelf.presentationState = store.shelf.items.isEmpty ? .empty : .compact
-            store.shelf.dockedEdge = nil
-            refreshSize()
+            let targetState: ShelfPresentationState =
+                store.shelf.items.isEmpty ? .empty : .compact
+            let targetSize = Self.size(
+                for: targetState,
+                empty: emptySize,
+                compact: Self.compactSize(
+                    itemCount: store.shelf.items.count
+                ),
+                detail: detailSize,
+                docked: dockedSize
+            )
+            beginLayoutTransition(
+                to: targetState,
+                dockedEdge: nil,
+                targetFrame: centeredFrame(to: targetSize),
+                timing: edgeTransitionTiming
+            )
             return
         }
 
         let screen = panel.screen ?? NSScreen.main
-        let midpoint = screen?.visibleFrame.midX ?? 0
-        let edge: DockedEdge = panel.frame.midX < midpoint ? .left : .right
-        store.shelf.dockedEdge = edge
-        store.shelf.presentationState = .docked
-        resize(to: dockedSize)
         guard let visible = screen?.visibleFrame else { return }
-        let x = edge == .left ? visible.minX : visible.maxX - dockedSize.width
-        panel.setFrameOrigin(NSPoint(x: x, y: min(max(panel.frame.minY, visible.minY), visible.maxY - dockedSize.height)))
-        onChange()
+        let edge: DockedEdge =
+            panel.frame.midX < visible.midX ? .left : .right
+        beginLayoutTransition(
+            to: .docked,
+            dockedEdge: edge,
+            targetFrame: ShelfPanelGeometry.dockedFrame(
+                from: panel.frame,
+                to: dockedSize,
+                edge: edge,
+                constrainedTo: visible
+            ),
+            timing: edgeTransitionTiming
+        )
     }
 
     private func resize(to size: NSSize) {
-        guard panel.frame.size != size else { return }
-        let visibleFrame = (panel.screen ?? NSScreen.main)?.visibleFrame
-        let frame = ShelfPanelGeometry.centeredFrame(
+        animateFrame(
+            to: centeredFrame(to: size),
+            duration: layoutTransitionTiming.frameDuration
+        )
+    }
+
+    private func centeredFrame(to size: NSSize) -> CGRect {
+        ShelfPanelGeometry.centeredFrame(
             from: panel.frame,
             to: size,
-            constrainedTo: visibleFrame
+            constrainedTo:
+                (panel.screen ?? NSScreen.main)?.visibleFrame
         )
+    }
 
-        guard !reduceMotion else {
+    private func animateFrame(
+        to frame: CGRect,
+        duration: TimeInterval
+    ) {
+        guard panel.frame != frame else { return }
+        guard duration > 0 else {
             panel.setFrame(frame, display: true)
             return
         }
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration =
-                ShelfMotionProfile.reference.frameMorphDuration
+            context.duration = duration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(frame, display: true)
         }
+    }
+
+    private func finishFrame(to frame: CGRect) {
+        guard panel.frame != frame else { return }
+        panel.setFrame(frame, display: true)
+    }
+
+    private var layoutTransitionTiming: ShelfLayoutTransitionTiming {
+        ShelfLayoutTransitionTiming.resolve(
+            profile: .reference,
+            reduceMotion: reduceMotion
+        )
+    }
+
+    private var edgeTransitionTiming: ShelfLayoutTransitionTiming {
+        layoutTransitionTiming
+            .delayingContentSwapUntilFrameSettles()
     }
 
     private var reduceMotion: Bool {

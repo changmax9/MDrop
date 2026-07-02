@@ -14,8 +14,7 @@ final class ShelfStore {
     var actionProgress: Double?
     var errorMessage: String?
     var isClosing = false
-    var isShelfHovered = false
-    var isWindowDragging = false
+    var isLayoutTransitioning = false
     var isLayoutContentVisible = true
     let animatesInitialAppearance: Bool
     @ObservationIgnored var cancelAction: (() -> Void)?

@@ -2,6 +2,21 @@ import CoreGraphics
 import Foundation
 
 public enum ShelfPanelGeometry {
+    public static func draggedOrigin(
+        from startingWindowOrigin: CGPoint,
+        pointerStart: CGPoint,
+        pointerCurrent: CGPoint
+    ) -> CGPoint {
+        CGPoint(
+            x: startingWindowOrigin.x
+                + pointerCurrent.x
+                - pointerStart.x,
+            y: startingWindowOrigin.y
+                + pointerCurrent.y
+                - pointerStart.y
+        )
+    }
+
     public static func centeredFrame(
         from currentFrame: CGRect,
         to size: CGSize,
@@ -28,6 +43,33 @@ public enum ShelfPanelGeometry {
             maximum: visibleFrame.maxY
         )
         return result
+    }
+
+    public static func dockedFrame(
+        from currentFrame: CGRect,
+        to size: CGSize,
+        edge: DockedEdge,
+        constrainedTo visibleFrame: CGRect
+    ) -> CGRect {
+        let proposedX = edge == .left
+            ? visibleFrame.minX
+            : visibleFrame.maxX - size.width
+        return CGRect(
+            x: constrainedOrigin(
+                proposed: proposedX,
+                size: size.width,
+                minimum: visibleFrame.minX,
+                maximum: visibleFrame.maxX
+            ),
+            y: constrainedOrigin(
+                proposed: currentFrame.minY,
+                size: size.height,
+                minimum: visibleFrame.minY,
+                maximum: visibleFrame.maxY
+            ),
+            width: size.width,
+            height: size.height
+        )
     }
 
     private static func constrainedOrigin(

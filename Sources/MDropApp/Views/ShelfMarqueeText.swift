@@ -4,11 +4,12 @@ import SwiftUI
 
 struct ShelfMarqueeText: View {
     let text: String
+    var viewportWidth: CGFloat = 88
+    var viewportHeight: CGFloat = 20
 
     @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var textWidth: CGFloat = 0
-    @State private var viewportWidth: CGFloat = 0
     @State private var offset: CGFloat = 0
 
     var body: some View {
@@ -29,12 +30,18 @@ struct ShelfMarqueeText: View {
                             textWidth = width
                         }
                 }
-                .frame(maxWidth: .infinity)
-                .clipped()
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.width
-                } action: { width in
-                    viewportWidth = width
+                .frame(
+                    width: viewportWidth,
+                    height: viewportHeight,
+                    alignment: alignment
+                )
+                .compositingGroup()
+                .mask {
+                    Rectangle()
+                        .frame(
+                            width: viewportWidth,
+                            height: viewportHeight
+                        )
                 }
                 .task(id: animationID) {
                     await runMarquee()
@@ -69,7 +76,11 @@ struct ShelfMarqueeText: View {
 
     @MainActor
     private func runMarquee() async {
-        offset = 0
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            offset = 0
+        }
         let distance = CGFloat(metrics.travelDistance)
         let duration = metrics.travelDuration
         guard distance > 0, duration > 0 else { return }

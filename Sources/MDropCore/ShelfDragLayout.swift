@@ -51,9 +51,9 @@ public struct ShelfDragLayout: Equatable, Sendable {
                 height: 40
             ),
             CGRect(
-                x: panelSize.width - 80,
+                x: panelSize.width - 110,
                 y: panelSize.height - 48,
-                width: 72,
+                width: 102,
                 height: 40
             ),
             CGRect(
