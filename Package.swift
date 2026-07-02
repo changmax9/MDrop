@@ -12,11 +12,28 @@ let package = Package(
         .executable(name: "MDrop", targets: ["MDropApp"]),
         .executable(name: "MDropHarness", targets: ["MDropHarness"])
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/sparkle-project/Sparkle",
+            exact: "2.9.2"
+        )
+    ],
     targets: [
         .target(name: "MDropCore"),
         .executableTarget(
             name: "MDropApp",
-            dependencies: ["MDropCore"]
+            dependencies: [
+                "MDropCore",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker",
+                    "-rpath",
+                    "-Xlinker",
+                    "@executable_path/../Frameworks"
+                ])
+            ]
         ),
         .executableTarget(name: "MDropHarness"),
         .testTarget(

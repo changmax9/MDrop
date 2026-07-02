@@ -10,6 +10,8 @@
 		A10000000000000000000001 /* MDropCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* MDropCore.framework */; };
 		A10000000000000000000004 /* MDropCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* MDropCore.framework */; };
 		A10000000000000000000007 /* MDropCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* MDropCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A20000000000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000004 /* Sparkle */; };
+		A20000000000000000000002 /* Sparkle in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000004 /* Sparkle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +39,7 @@
 			dstSubfolderSpec = 10;
 			files = (
 				A10000000000000000000007 /* MDropCore.framework in Embed Frameworks */,
+				A20000000000000000000002 /* Sparkle in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -78,6 +81,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* MDropCore.framework in Frameworks */,
+				A20000000000000000000001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,6 +147,7 @@
 			);
 			name = MDrop;
 			packageProductDependencies = (
+				A20000000000000000000004 /* Sparkle */,
 			);
 			productName = MDrop;
 			productReference = A10000000000000000000010 /* MDrop.app */;
@@ -220,12 +225,21 @@
 			knownRegions = (
 				en,
 				"zh-Hans",
+				"zh-Hant",
+				ja,
+				fr,
+				ru,
+				es,
+				pt,
 				Base,
 			);
 			mainGroup = A10000000000000000000015;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000000000000000000016 /* Products */;
+			packageReferences = (
+				A20000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -303,7 +317,7 @@
 			buildSettings = {
 				ARCHS = arm64;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 78LUW8TPDW;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -314,7 +328,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.maxchang.MDrop;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -327,7 +341,7 @@
 			buildSettings = {
 				ARCHS = arm64;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 78LUW8TPDW;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -337,7 +351,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.maxchang.MDrop;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -452,6 +466,25 @@
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A20000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A20000000000000000000004 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A20000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCConfigurationList section */
 		A10000000000000000000070 /* Build configuration list for PBXNativeTarget "MDrop" */ = {

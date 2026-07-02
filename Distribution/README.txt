@@ -1,4 +1,4 @@
-MDrop 0.1.0 — Ad-hoc Signed Build
+MDrop 0.2.0 — Ad-hoc Signed Build
 
 This build uses a local ad-hoc signature and is not notarized. macOS may block
 its first launch.
@@ -13,7 +13,7 @@ Only use builds whose SHA-256 matches the accompanying checksum file.
 
 —
 
-MDrop 0.1.0 — 本地签名、未公证版本
+MDrop 0.2.0 — 本地签名、未公证版本
 
 此版本使用本地 ad-hoc 签名，未经过 Apple 公证，因此 macOS 首次运行时可能会
 阻止打开。

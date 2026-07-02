@@ -4,6 +4,7 @@ import MDropCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let coordinator = ShelfCoordinator()
+    private let updateService = UpdateService.shared
     private var statusItem: NSStatusItem?
     private var shakeMonitor: ShakeMonitor?
     private var hotKeyManager: GlobalHotKeyManager?
@@ -120,6 +121,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.shelfMenu = shelfMenu
         menu.addItem(.separator())
         menu.addItem(
+            withTitle: AppLocalization.string("Check for Updates…"),
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        ).target = self
+        menu.addItem(
             withTitle: AppLocalization.string("Settings…"),
             action: #selector(openSettings),
             keyEquivalent: ","
@@ -134,6 +140,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         guard menu === statusItem?.menu else { return }
+        updateService.refresh()
+        menu.items.first {
+            $0.action == #selector(checkForUpdates)
+        }?.isEnabled = updateService.canCheckForUpdates
         refreshShelfMenu()
     }
 
@@ -309,6 +319,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ?? SettingsWindowController()
         settingsWindowController = controller
         controller.show()
+    }
+
+    @objc private func checkForUpdates() {
+        updateService.checkForUpdates()
     }
 
     @objc private func quit() {

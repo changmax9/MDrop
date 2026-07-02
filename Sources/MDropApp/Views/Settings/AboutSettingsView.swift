@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 
 struct AboutSettingsView: View {
+    @State private var updateService = UpdateService.shared
+
     var body: some View {
         Section {
             HStack(spacing: 16) {
@@ -29,6 +31,23 @@ struct AboutSettingsView: View {
             LabeledContent("Minimum macOS", value: "26")
         }
 
+        Section("Updates") {
+            Button("Check for Updates…") {
+                updateService.checkForUpdates()
+            }
+            .disabled(!updateService.canCheckForUpdates)
+
+            Toggle(
+                "Automatically check for updates",
+                isOn: $updateService.automaticallyChecksForUpdates
+            )
+            Toggle(
+                "Automatically download updates",
+                isOn: $updateService.automaticallyDownloadsUpdates
+            )
+            .disabled(!updateService.automaticallyChecksForUpdates)
+        }
+
         Section("Application Support") {
             Button("Reveal Application Support Folder") {
                 NSWorkspace.shared.activateFileViewerSelecting(
@@ -40,6 +59,9 @@ struct AboutSettingsView: View {
                     URL(string: "https://github.com/changmax9/MDrop")!
                 )
             }
+        }
+        .onAppear {
+            updateService.refresh()
         }
     }
 
@@ -61,12 +83,12 @@ struct AboutSettingsView: View {
     private var shortVersion: String {
         Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
-        ) as? String ?? "0.1.0"
+        ) as? String ?? "0.2.0"
     }
 
     private var buildNumber: String {
         Bundle.main.object(
             forInfoDictionaryKey: "CFBundleVersion"
-        ) as? String ?? "1"
+        ) as? String ?? "2"
     }
 }

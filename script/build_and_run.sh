@@ -4,6 +4,8 @@ set -euo pipefail
 MODE="${1:-run}"
 APP_NAME="MDrop"
 BUNDLE_ID="com.maxchang.MDrop"
+MARKETING_VERSION="0.2.0"
+BUILD_NUMBER="2"
 CONFIGURATION="${MDROP_CONFIGURATION:-Debug}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -45,14 +47,20 @@ stage_swiftpm_bundle() {
   )"
 
   rm -rf "$APP_BUNDLE"
-  mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
+  mkdir -p \
+    "$APP_BUNDLE/Contents/MacOS" \
+    "$APP_BUNDLE/Contents/Frameworks" \
+    "$APP_BUNDLE/Contents/Resources"
   cp "$ROOT_DIR/Config/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
   cp "$swift_bin_dir/$APP_NAME" "$APP_BINARY"
+  cp -R \
+    "$swift_bin_dir/Sparkle.framework" \
+    "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
   plutil -replace CFBundleExecutable -string "$APP_NAME" "$APP_BUNDLE/Contents/Info.plist"
   plutil -replace CFBundleIdentifier -string "$BUNDLE_ID" "$APP_BUNDLE/Contents/Info.plist"
   plutil -replace CFBundleName -string "$APP_NAME" "$APP_BUNDLE/Contents/Info.plist"
-  plutil -replace CFBundleShortVersionString -string "0.1.0" "$APP_BUNDLE/Contents/Info.plist"
-  plutil -replace CFBundleVersion -string "1" "$APP_BUNDLE/Contents/Info.plist"
+  plutil -replace CFBundleShortVersionString -string "$MARKETING_VERSION" "$APP_BUNDLE/Contents/Info.plist"
+  plutil -replace CFBundleVersion -string "$BUILD_NUMBER" "$APP_BUNDLE/Contents/Info.plist"
   plutil -replace LSMinimumSystemVersion -string "26.0" "$APP_BUNDLE/Contents/Info.plist"
 
   local xcstringstool="$developer_root/usr/bin/xcstringstool"
@@ -86,7 +94,7 @@ fi
 
 find "$APP_BUNDLE/Contents" -type d -name '*.framework' -print0 |
   while IFS= read -r -d '' framework; do
-    codesign --force --sign - "$framework"
+    codesign --force --deep --sign - "$framework"
   done
 codesign \
   --force \
