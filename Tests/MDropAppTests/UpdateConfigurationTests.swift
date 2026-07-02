@@ -103,6 +103,34 @@ struct UpdateConfigurationTests {
         )
     }
 
+    @Test("Appcast describes the signed GitHub release")
+    func appcast() throws {
+        let appcast = try String(
+            contentsOf:
+                repositoryRoot.appending(path: "appcast.xml"),
+            encoding: .utf8
+        )
+
+        #expect(appcast.contains("<sparkle:version>2</sparkle:version>"))
+        #expect(
+            appcast.contains(
+                "<sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>"
+            )
+        )
+        #expect(
+            appcast.contains(
+                "<sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>"
+            )
+        )
+        #expect(
+            appcast.contains(
+                "releases/download/v0.2.0/MDrop-0.2.0-arm64.dmg"
+            )
+        )
+        #expect(appcast.contains("length=\"3134049\""))
+        #expect(appcast.contains("sparkle:edSignature="))
+    }
+
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

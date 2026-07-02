@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss
+    version="2.0"
+    xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+>
+    <channel>
+        <title>MDrop Updates</title>
+        <link>https://github.com/changmax9/MDrop</link>
+        <description>Stable MDrop releases</description>
+        <language>en</language>
+        <item>
+            <title>MDrop 0.2.0</title>
+            <pubDate>Thu, 02 Jul 2026 07:35:00 +0000</pubDate>
+            <description><![CDATA[
+                <h2>MDrop 0.2.0</h2>
+                <ul>
+                    <li>Reference-matched Liquid Glass view-mode motion.</li>
+                    <li>Immediate global switching across eight languages.</li>
+                    <li>Polished settings, Folded M branding, and Sparkle updates.</li>
+                </ul>
+            ]]></description>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/changmax9/MDrop/releases/download/v0.2.0/MDrop-0.2.0-arm64.dmg"
+                length="3134049"
+                type="application/octet-stream"
+                sparkle:edSignature="tMmr9uruLVGT/JGttte486HePHMfozVv0XTp4XtNfGYXe8Mi4aNjRq7dE9n+TcyR7R5e+sNbFG7xPwxcm0mJDw=="
+            />
+        </item>
+    </channel>
+</rss>
