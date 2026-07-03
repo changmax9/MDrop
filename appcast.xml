@@ -9,6 +9,28 @@
         <description>Stable MDrop releases</description>
         <language>en</language>
         <item>
+            <title>MDrop 0.2.3</title>
+            <pubDate>Fri, 03 Jul 2026 07:41:07 +0000</pubDate>
+            <description><![CDATA[
+                <h2>MDrop 0.2.3</h2>
+                <ul>
+                    <li>Shows the selected files in Finder without leaving the floating Shelf in front.</li>
+                    <li>Applies the fix to the detail tile, list double-click, and compact Shelf menu.</li>
+                    <li>Runs the filename marquee only while hovered, eliminating its idle CPU usage.</li>
+                    <li>Keeps the Shelf data available for reopening from the menu bar.</li>
+                </ul>
+            ]]></description>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.2.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/changmax9/MDrop/releases/download/v0.2.3/MDrop-0.2.3-arm64.dmg"
+                length="3130602"
+                type="application/octet-stream"
+                sparkle:edSignature="u+SlATZ9MTOgugK4/dH9I+ptIWV9WbBuSsKATMKHVlQPSPmYrbR5InIhLNJN4icJ5HCLlwtYNZFu65UNPpMxCw=="
+            />
+        </item>
+        <item>
             <title>MDrop 0.2.2</title>
             <pubDate>Thu, 02 Jul 2026 18:14:36 +0000</pubDate>
             <description><![CDATA[

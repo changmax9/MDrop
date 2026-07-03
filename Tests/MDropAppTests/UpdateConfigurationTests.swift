@@ -62,8 +62,8 @@ struct UpdateConfigurationTests {
 
         #expect(info.contains("$(MARKETING_VERSION)"))
         #expect(info.contains("$(CURRENT_PROJECT_VERSION)"))
-        #expect(project.contains("MARKETING_VERSION = 0.2.2;"))
-        #expect(project.contains("CURRENT_PROJECT_VERSION = 4;"))
+        #expect(project.contains("MARKETING_VERSION = 0.2.3;"))
+        #expect(project.contains("CURRENT_PROJECT_VERSION = 5;"))
     }
 
     @Test("SwiftPM release bundle can load the embedded framework")
@@ -111,10 +111,10 @@ struct UpdateConfigurationTests {
             encoding: .utf8
         )
 
-        #expect(appcast.contains("<sparkle:version>4</sparkle:version>"))
+        #expect(appcast.contains("<sparkle:version>5</sparkle:version>"))
         #expect(
             appcast.contains(
-                "<sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>"
+                "<sparkle:shortVersionString>0.2.3</sparkle:shortVersionString>"
             )
         )
         #expect(
@@ -124,10 +124,15 @@ struct UpdateConfigurationTests {
         )
         #expect(
             appcast.contains(
-                "releases/download/v0.2.2/MDrop-0.2.2-arm64.dmg"
+                "releases/download/v0.2.3/MDrop-0.2.3-arm64.dmg"
             )
         )
-        #expect(appcast.contains("length=\"3128940\""))
+        #expect(
+            appcast.contains(
+                "Shows the selected files in Finder without leaving the floating Shelf in front."
+            )
+        )
+        #expect(!appcast.contains("SIGNATURE_PENDING"))
         #expect(appcast.contains("sparkle:edSignature="))
     }
 
