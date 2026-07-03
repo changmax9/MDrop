@@ -159,6 +159,7 @@ struct CompactStackedShelfView: View {
             HStack(spacing: 5) {
                 ShelfMarqueeText(
                     text: label,
+                    isHovering: isHovering,
                     viewportWidth: 88,
                     viewportHeight: 20
                 )

@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ShelfMarqueeText: View {
     let text: String
+    let isHovering: Bool
     var viewportWidth: CGFloat = 88
     var viewportHeight: CGFloat = 20
 
@@ -70,6 +71,7 @@ struct ShelfMarqueeText: View {
             text: text,
             textWidth: textWidth,
             viewportWidth: viewportWidth,
+            isHovering: isHovering,
             reduceMotion: reduceMotion
         )
     }
@@ -83,7 +85,10 @@ struct ShelfMarqueeText: View {
         }
         let distance = CGFloat(metrics.travelDistance)
         let duration = metrics.travelDuration
-        guard distance > 0, duration > 0 else { return }
+        guard metrics.shouldAnimate(
+            isHovering: isHovering,
+            reduceMotion: reduceMotion
+        ) else { return }
 
         while !Task.isCancelled {
             guard await sleep(
@@ -127,5 +132,6 @@ private struct MarqueeAnimationID: Equatable {
     let text: String
     let textWidth: CGFloat
     let viewportWidth: CGFloat
+    let isHovering: Bool
     let reduceMotion: Bool
 }

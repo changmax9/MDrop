@@ -32,4 +32,14 @@ public struct ShelfMarqueeMetrics: Equatable, Sendable {
                 : distance / pointsPerSecond
         )
     }
+
+    public func shouldAnimate(
+        isHovering: Bool,
+        reduceMotion: Bool
+    ) -> Bool {
+        isHovering
+            && !reduceMotion
+            && travelDistance > 0
+            && travelDuration > 0
+    }
 }

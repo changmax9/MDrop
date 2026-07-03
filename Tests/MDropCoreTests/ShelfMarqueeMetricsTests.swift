@@ -36,4 +36,31 @@ struct ShelfMarqueeMetricsTests {
         #expect(metrics.travelDistance == 0)
         #expect(metrics.travelDuration == 0)
     }
+
+    @Test("Overflow marquee animates only while hovered")
+    func overflowAnimatesOnlyWhileHovered() {
+        let metrics = ShelfMarqueeMetrics.measure(
+            textWidth: 180,
+            viewportWidth: 112
+        )
+
+        #expect(
+            !metrics.shouldAnimate(
+                isHovering: false,
+                reduceMotion: false
+            )
+        )
+        #expect(
+            metrics.shouldAnimate(
+                isHovering: true,
+                reduceMotion: false
+            )
+        )
+        #expect(
+            !metrics.shouldAnimate(
+                isHovering: true,
+                reduceMotion: true
+            )
+        )
+    }
 }
