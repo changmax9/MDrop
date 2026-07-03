@@ -9,6 +9,7 @@ struct ShelfView: View {
     let onDock: () -> Void
     let onQuickLook: () -> Void
     let onAddClipboard: () -> Void
+    let onRevealInFinder: ([URL]) -> Void
     let onAction: (BuiltinActionID) -> Void
     let onPreset: (CustomActionPreset) -> Void
     let onScript: (ScriptDefinition) -> Void
@@ -182,6 +183,7 @@ struct ShelfView: View {
                 store: store,
                 onCollapse: onToggleDetail,
                 onDock: onDock,
+                onRevealInFinder: onRevealInFinder,
                 onAction: onAction,
                 onPreset: onPreset,
                 onScript: onScript,
@@ -201,6 +203,7 @@ struct ShelfView: View {
                 onDock: onDock,
                 onQuickLook: onQuickLook,
                 onAddClipboard: onAddClipboard,
+                onRevealInFinder: onRevealInFinder,
                 onAction: onAction,
                 onChange: onChange,
                 onClose: onClose
@@ -532,6 +535,7 @@ private struct ShelfDetailView: View {
     @Bindable var store: ShelfStore
     let onCollapse: () -> Void
     let onDock: () -> Void
+    let onRevealInFinder: ([URL]) -> Void
     let onAction: (BuiltinActionID) -> Void
     let onPreset: (CustomActionPreset) -> Void
     let onScript: (ScriptDefinition) -> Void
@@ -773,7 +777,7 @@ private struct ShelfDetailView: View {
         }
         .onTapGesture(count: 2) {
             if let url = item.fileURL {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
+                onRevealInFinder([url])
             }
         }
         .contextMenu {
@@ -882,7 +886,7 @@ private struct ShelfDetailView: View {
     }
 
     private func revealInFinder() {
-        NSWorkspace.shared.activateFileViewerSelecting(fileURLs)
+        onRevealInFinder(fileURLs)
     }
 }
 

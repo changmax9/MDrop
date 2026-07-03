@@ -59,6 +59,50 @@ struct AppInteractionConfigurationTests {
         )
     }
 
+    @Test("Revealing files hides the floating shelf after opening Finder")
+    func finderRevealGetsTheFloatingShelfOutOfTheWay() {
+        let fileURL = URL(fileURLWithPath: "/tmp/reveal-me.txt")
+        var revealedURLs: [URL] = []
+        let controller = FinderRevealController {
+            revealedURLs = $0
+        }
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 200),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .floating
+        panel.orderFrontRegardless()
+        defer { panel.close() }
+
+        controller.reveal([fileURL], from: panel)
+
+        #expect(revealedURLs == [fileURL])
+        #expect(!panel.isVisible)
+    }
+
+    @Test("Revealing no files leaves the shelf visible")
+    func emptyFinderRevealDoesNothing() {
+        var activationCount = 0
+        let controller = FinderRevealController { _ in
+            activationCount += 1
+        }
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 200),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.orderFrontRegardless()
+        defer { panel.close() }
+
+        controller.reveal([], from: panel)
+
+        #expect(activationCount == 0)
+        #expect(panel.isVisible)
+    }
+
     @Test("Settings window bridge uses the tested safe content size")
     func settingsWindowBridgeUsesSafeContentSize() throws {
         let controller = SettingsWindowController()

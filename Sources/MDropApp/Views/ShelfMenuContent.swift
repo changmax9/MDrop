@@ -7,6 +7,7 @@ struct ShelfMenuContent: View {
     let onDock: () -> Void
     let onQuickLook: () -> Void
     let onAddClipboard: () -> Void
+    let onRevealInFinder: ([URL]) -> Void
     let onAction: (BuiltinActionID) -> Void
     let onChange: () -> Void
 
@@ -23,7 +24,7 @@ struct ShelfMenuContent: View {
             }
 
             Button("Show in Finder", systemImage: "finder") {
-                NSWorkspace.shared.activateFileViewerSelecting(fileURLs)
+                onRevealInFinder(fileURLs)
             }
             .disabled(fileURLs.isEmpty)
 

@@ -256,6 +256,7 @@ final class ShelfPanelController {
     private let hostingView: NSHostingView<ShelfView>
     private let actionController = ShelfActionController()
     private let quickLookController = QuickLookController()
+    private let finderRevealController = FinderRevealController()
     private var keyMonitor: Any?
     private var closeWorkItem: DispatchWorkItem?
     private var morphTask: Task<Void, Never>?
@@ -303,6 +304,7 @@ final class ShelfPanelController {
             onDock: {},
             onQuickLook: {},
             onAddClipboard: {},
+            onRevealInFinder: { _ in },
             onAction: { _ in },
             onPreset: { _ in },
             onScript: { _ in },
@@ -381,6 +383,13 @@ final class ShelfPanelController {
             onQuickLook: { [weak self] in self?.quickLookSelectedItems() },
             onAddClipboard: {
                 onDrop(PasteboardReader.representations(from: .general))
+            },
+            onRevealInFinder: { [weak self] fileURLs in
+                guard let self else { return }
+                finderRevealController.reveal(
+                    fileURLs,
+                    from: panel
+                )
             },
             onAction: { [weak self] action in self?.run(action) },
             onPreset: { [weak self] preset in self?.run(preset) },

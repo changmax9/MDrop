@@ -8,6 +8,7 @@ struct CompactStackedShelfView: View {
     let onDock: () -> Void
     let onQuickLook: () -> Void
     let onAddClipboard: () -> Void
+    let onRevealInFinder: ([URL]) -> Void
     let onAction: (BuiltinActionID) -> Void
     let onChange: () -> Void
     let onClose: () -> Void
@@ -49,6 +50,7 @@ struct CompactStackedShelfView: View {
                 onDock: onDock,
                 onQuickLook: onQuickLook,
                 onAddClipboard: onAddClipboard,
+                onRevealInFinder: onRevealInFinder,
                 onAction: onAction,
                 onChange: onChange
             )
@@ -93,6 +95,7 @@ struct CompactStackedShelfView: View {
                 onDock: onDock,
                 onQuickLook: onQuickLook,
                 onAddClipboard: onAddClipboard,
+                onRevealInFinder: onRevealInFinder,
                 onAction: onAction,
                 onChange: onChange
             )
