@@ -181,24 +181,9 @@ struct ShelfMenuContent: View {
     }
 
     private func copyItems() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-
-        if fileURLs.count == selectedItems.count {
-            pasteboard.writeObjects(fileURLs as [NSURL])
-            return
-        }
-
-        let values = selectedItems.map {
-            switch $0.payload {
-            case let .file(reference):
-                reference.resolvedURL().path
-            case let .text(value):
-                value
-            case let .url(url):
-                url.absoluteString
-            }
-        }
-        pasteboard.setString(values.joined(separator: "\n"), forType: .string)
+        ShelfPasteboardWriter.write(
+            selectedItems,
+            to: .general
+        )
     }
 }

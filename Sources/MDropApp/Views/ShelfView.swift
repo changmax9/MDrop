@@ -22,10 +22,9 @@ struct ShelfView: View {
     @State private var languageController =
         AppLanguageController.shared
     @State private var hasStartedEntrance = false
-    @State private var surfaceScaleX: CGFloat = 0.82
-    @State private var surfaceScaleY: CGFloat = 0.82
+    @State private var surfaceScaleX: CGFloat = 0.985
+    @State private var surfaceScaleY: CGFloat = 0.985
     @State private var surfaceOpacity: CGFloat = 0
-    @State private var entranceCornerRadius: CGFloat = 44
     @State private var entranceContentOpacity: CGFloat = 1
     @State private var entranceContentScale: CGFloat = 1
 
@@ -135,32 +134,45 @@ struct ShelfView: View {
             Text(store.errorMessage ?? "")
         }
         .overlay {
-            if store.isCommandBarPresented {
-                CommandBarView(
-                    store: store,
-                    onAction: onAction,
-                    onPreset: onPreset,
-                    onScript: onScript
-                )
-                .transition(.scale.combined(with: .opacity))
-                .padding(18)
+            ZStack {
+                if store.isCommandBarPresented {
+                    CommandBarView(
+                        store: store,
+                        onAction: onAction,
+                        onPreset: onPreset,
+                        onScript: onScript
+                    )
+                    .transition(commandBarTransition)
+                    .padding(18)
+                }
             }
+            .animation(
+                overlayAnimation,
+                value: store.isCommandBarPresented
+            )
         }
         .overlay(alignment: .bottom) {
-            if let progress = store.actionProgress {
-                HStack(spacing: 10) {
-                    ProgressView(value: progress)
-                        .frame(width: 150)
-                    if let cancel = store.cancelAction {
-                        Button("Cancel", action: cancel)
-                            .buttonStyle(.glass)
+            ZStack(alignment: .bottom) {
+                if let progress = store.actionProgress {
+                    HStack(spacing: 10) {
+                        ProgressView(value: progress)
+                            .frame(width: 150)
+                        if let cancel = store.cancelAction {
+                            Button("Cancel", action: cancel)
+                                .buttonStyle(.glass)
+                        }
                     }
+                    .padding(10)
+                    .glassEffect(.regular, in: .capsule)
+                    .padding(.bottom, 16)
+                    .accessibilityLabel("Action progress")
+                    .transition(progressHUDTransition)
                 }
-                .padding(10)
-                .glassEffect(.regular, in: .capsule)
-                .padding(.bottom, 16)
-                .accessibilityLabel("Action progress")
             }
+            .animation(
+                overlayAnimation,
+                value: store.actionProgress != nil
+            )
         }
         .environment(languageController)
         .environment(\.locale, languageController.locale)
@@ -221,7 +233,11 @@ struct ShelfView: View {
     }
 
     private var targetingScale: CGFloat {
-        store.isReceivingDrop && !reduceMotion ? 1.006 : 1
+        guard !reduceMotion else { return 1 }
+        if store.isClosing {
+            return 0.985
+        }
+        return store.isReceivingDrop ? 1.006 : 1
     }
 
     private var resolvedSurfaceScaleX: CGFloat {
@@ -258,9 +274,7 @@ struct ShelfView: View {
     }
 
     private var animatedCornerRadius: CGFloat {
-        store.animatesInitialAppearance && !reduceMotion
-            ? entranceCornerRadius
-            : glassCornerRadius
+        glassCornerRadius
     }
 
     private var layoutVisibilityAnimation: Animation {
@@ -277,6 +291,26 @@ struct ShelfView: View {
             )
     }
 
+    private var overlayAnimation: Animation {
+        reduceMotion
+            ? .linear(duration: 0.10)
+            : .smooth(duration: 0.18)
+    }
+
+    private var commandBarTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .scale(scale: 0.985)
+                .combined(with: .opacity)
+    }
+
+    private var progressHUDTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .move(edge: .bottom)
+                .combined(with: .opacity)
+    }
+
     @MainActor
     private func runEntrance() async {
         guard !hasStartedEntrance else { return }
@@ -286,7 +320,6 @@ struct ShelfView: View {
             surfaceScaleX = 1
             surfaceScaleY = 1
             surfaceOpacity = 1
-            entranceCornerRadius = glassCornerRadius
             entranceContentOpacity = 1
             entranceContentScale = 1
             return
@@ -305,7 +338,6 @@ struct ShelfView: View {
             }
             surfaceScaleX = 1
             surfaceScaleY = 1
-            entranceCornerRadius = glassCornerRadius
             entranceContentScale = 1
             return
         }
@@ -319,7 +351,6 @@ struct ShelfView: View {
             surfaceScaleX = 1
             surfaceScaleY = 1
             surfaceOpacity = 1
-            entranceCornerRadius = glassCornerRadius
             entranceContentOpacity = 1
             entranceContentScale = 1
         }
@@ -402,13 +433,20 @@ struct ShelfCircleControlLabel: View {
     let systemName: String
     var externallyHovered: Bool? = nil
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
     @State private var internallyHovered = false
 
     var body: some View {
         ZStack {
             Circle()
                 .fill(surfaceColor)
-                .glassEffect(.regular, in: .circle)
+                .glassEffect(
+                    reduceMotion
+                        ? .regular
+                        : .regular.interactive(),
+                    in: .circle
+                )
                 .overlay {
                     Circle()
                         .stroke(outlineColor, lineWidth: 0.5)
@@ -446,15 +484,16 @@ struct ShelfCircleControlLabel: View {
                 height: ShelfMotionProfile.reference.controlDiameter
             )
             .contentShape(.circle)
+            .scaleEffect(
+                isHovered && !reduceMotion ? 1.018 : 1
+            )
+            .offset(y: isHovered && !reduceMotion ? -0.5 : 0)
             .onHover { hovering in
                 guard externallyHovered == nil else { return }
                 internallyHovered = hovering
             }
             .animation(
-                .easeOut(
-                    duration:
-                        ShelfMotionProfile.reference.controlHoverDuration
-                ),
+                controlHoverAnimation,
                 value: isHovered
             )
     }
@@ -487,6 +526,21 @@ struct ShelfCircleControlLabel: View {
 
     private var restingShadowOpacity: Double {
         colorScheme == .dark ? 0.34 : 0.13
+    }
+
+    private var reduceMotion: Bool {
+        reduceShelfMotion
+            || systemReduceMotion
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    private var controlHoverAnimation: Animation {
+        reduceMotion
+            ? .linear(duration: 0.08)
+            : .smooth(
+                duration:
+                    ShelfMotionProfile.reference.controlHoverDuration
+            )
     }
 }
 
@@ -543,6 +597,8 @@ private struct ShelfDetailView: View {
     let onClose: () -> Void
     @State private var viewMode: ShelfDetailViewMode = .list
     @State private var automation = AutomationStore.shared
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
 
     var body: some View {
         VStack(spacing: 3) {
@@ -578,33 +634,37 @@ private struct ShelfDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
     private var detailContent: some View {
-        if viewMode == .grid {
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .top, spacing: 18) {
-                    ForEach(store.shelf.items) { item in
-                        detailGridItem(item)
-                    }
+        ZStack {
+            if viewMode == .grid {
+                ScrollView(.horizontal) {
+                    LazyHStack(alignment: .top, spacing: 18) {
+                        ForEach(store.shelf.items) { item in
+                            detailGridItem(item)
+                        }
 
-                    revealInFinderTile
-                }
-                .padding(.horizontal, 14)
-            }
-            .scrollIndicators(.hidden)
-            .padding(.bottom, 8)
-        } else {
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    ForEach(store.shelf.items) { item in
-                        detailListItem(item)
+                        revealInFinderTile
                     }
+                    .padding(.horizontal, 14)
                 }
-                .padding(.top, 14)
+                .scrollIndicators(.hidden)
+                .padding(.bottom, 8)
+                .transition(detailModeTransition)
+            } else {
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(store.shelf.items) { item in
+                            detailListItem(item)
+                        }
+                    }
+                    .padding(.top, 14)
+                }
+                .scrollIndicators(.hidden)
+                .padding(.bottom, 8)
+                .transition(detailModeTransition)
             }
-            .scrollIndicators(.hidden)
-            .padding(.bottom, 8)
         }
+        .animation(detailModeAnimation, value: viewMode)
     }
 
     private var revealInFinderTile: some View {
@@ -887,6 +947,24 @@ private struct ShelfDetailView: View {
 
     private func revealInFinder() {
         onRevealInFinder(fileURLs)
+    }
+
+    private var reduceMotion: Bool {
+        reduceShelfMotion
+            || systemReduceMotion
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    private var detailModeTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.985))
+    }
+
+    private var detailModeAnimation: Animation {
+        reduceMotion
+            ? .linear(duration: 0.10)
+            : .smooth(duration: 0.18)
     }
 }
 

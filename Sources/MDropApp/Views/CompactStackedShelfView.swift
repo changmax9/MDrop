@@ -123,6 +123,7 @@ struct CompactStackedShelfView: View {
                         .offset(x: transform.x, y: transform.y)
                         .rotationEffect(.degrees(transform.rotationDegrees))
                         .scaleEffect(transform.scale)
+                        .transition(cardTransition)
                         .zIndex(Double(index))
                 }
             }
@@ -149,8 +150,8 @@ struct CompactStackedShelfView: View {
             radius: isHovering ? 9 : 5,
             y: isHovering ? 5 : 3
         )
-        .scaleEffect(isHovering ? 1.012 : 1)
-        .offset(y: isHovering ? -1 : 0)
+        .scaleEffect(isHovering && !reduceMotion ? 1.012 : 1)
+        .offset(y: isHovering && !reduceMotion ? -1 : 0)
         .animation(hoverAnimation, value: isHovering)
     }
 
@@ -238,6 +239,17 @@ struct CompactStackedShelfView: View {
         reduceMotion
             ? .linear(duration: 0.08)
             : .spring(response: 0.26, dampingFraction: 0.82)
+    }
+
+    private var cardTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(
+                with: .scale(
+                    scale: 0.94,
+                    anchor: .bottom
+                )
+            )
     }
 
     private var hoverAnimation: Animation {

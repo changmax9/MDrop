@@ -4,7 +4,7 @@ import QuartzCore
 import SwiftUI
 
 final class ShelfPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
 
@@ -251,6 +251,7 @@ final class ShelfDropContainerView: NSView {
 final class ShelfPanelController {
     let panel: ShelfPanel
     let store: ShelfStore
+    private let onDrop: ([DropRepresentation]) -> Void
     private let onChange: () -> Void
     private let onClose: () -> Void
     private let hostingView: NSHostingView<ShelfView>
@@ -282,6 +283,7 @@ final class ShelfPanelController {
             shelf: shelf,
             animatesInitialAppearance: animatesInitialAppearance
         )
+        self.onDrop = onDrop
         self.onChange = onChange
         self.onClose = onClose
         let size = Self.size(
@@ -368,6 +370,7 @@ final class ShelfPanelController {
         panel.isOpaque = false
         panel.hasShadow = false
         panel.isFloatingPanel = true
+        panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -556,37 +559,65 @@ final class ShelfPanelController {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
             [weak self] event in
             guard let self, event.window === panel else { return event }
-            let command = event.modifierFlags.contains(.command)
-            switch (event.charactersIgnoringModifiers, command) {
-            case ("k", true):
+            guard let command = ShelfKeyboardCommand.resolve(
+                characters: event.charactersIgnoringModifiers,
+                keyCode: event.keyCode,
+                modifierFlags: event.modifierFlags
+            ) else { return event }
+            let isEditingText = store.isCommandBarPresented
+                || panel.firstResponder is NSTextView
+            if isEditingText, !command.canHandleWhileEditingText {
+                return event
+            }
+
+            switch command {
+            case .commandBar:
                 store.isCommandBarPresented.toggle()
                 return nil
-            case ("w", true):
+            case .close:
                 requestClose()
                 return nil
-            case ("\u{1b}", _):
+            case .dismiss:
                 store.isCommandBarPresented = false
                 return nil
-            case ("\t", _):
+            case .toggleDetail:
                 toggleDetail()
                 return nil
-            case (" ", _):
-                let selected = store.selectedItemIDs.isEmpty
-                    ? store.shelf.items
-                    : store.shelf.items.filter { store.selectedItemIDs.contains($0.id) }
-                quickLookController.show(selected.compactMap(\.fileURL))
+            case .quickLook:
+                quickLookSelectedItems()
                 return nil
-            case ("\u{7f}", _):
+            case .delete:
                 let ids = store.selectedItemIDs.isEmpty
                     ? Set(store.shelf.items.map(\.id))
                     : store.selectedItemIDs
                 store.remove(ids)
                 onChange()
                 return nil
-            default:
-                return event
+            case .selectAll:
+                store.selectedItemIDs = Set(store.shelf.items.map(\.id))
+                return nil
+            case .copy:
+                return ShelfPasteboardWriter.write(
+                    selectedItems,
+                    to: .general
+                ) ? nil : event
+            case .paste:
+                let representations = PasteboardReader.representations(
+                    from: .general
+                )
+                guard !representations.isEmpty else { return event }
+                onDrop(representations)
+                return nil
             }
         }
+    }
+
+    private var selectedItems: [ShelfItemRecord] {
+        store.selectedItemIDs.isEmpty
+            ? store.shelf.items
+            : store.shelf.items.filter {
+                store.selectedItemIDs.contains($0.id)
+            }
     }
 
     private func toggleDock() {
