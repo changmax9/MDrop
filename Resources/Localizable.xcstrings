@@ -4161,54 +4161,54 @@
         }
       }
     },
-    "Floating Shelves use dark Liquid Glass; settings follow the system appearance and accessibility preferences.": {
+    "Floating Shelves use adaptive Liquid Glass with restrained depth; settings follow system appearance and accessibility preferences.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Floating Shelves use dark Liquid Glass; settings follow the system appearance and accessibility preferences."
+            "value": "Floating Shelves use adaptive Liquid Glass with restrained depth; settings follow system appearance and accessibility preferences."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "浮动暂存架使用深色液态玻璃；设置会跟随系统外观和辅助功能偏好。"
+            "value": "浮动暂存架使用自适应液态玻璃和克制的层次；设置会跟随系统外观和辅助功能偏好。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "浮動暫存架使用深色液態玻璃；設定會跟隨系統外觀與輔助使用偏好。"
+            "value": "浮動暫存架使用自適應液態玻璃與克制的層次；設定會跟隨系統外觀與輔助使用偏好。"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "フローティングシェルフはダークLiquid Glassを使用し、設定はシステムの外観とアクセシビリティに従います。"
+            "value": "フローティングシェルフは控えめな奥行きのアダプティブLiquid Glassを使用し、設定はシステムの外観とアクセシビリティに従います。"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les étagères flottantes utilisent un Liquid Glass sombre ; les réglages suivent l’apparence et l’accessibilité du système."
+            "value": "Les étagères flottantes utilisent un Liquid Glass adaptatif au relief discret ; les réglages suivent l’apparence et l’accessibilité du système."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Плавающие полки используют тёмное Liquid Glass; настройки следуют системному оформлению и универсальному доступу."
+            "value": "Плавающие полки используют адаптивное Liquid Glass со сдержанной глубиной; настройки следуют системному оформлению и универсальному доступу."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los estantes flotantes usan Liquid Glass oscuro; los ajustes siguen la apariencia y accesibilidad del sistema."
+            "value": "Los estantes flotantes usan Liquid Glass adaptativo con una profundidad sutil; los ajustes siguen la apariencia y accesibilidad del sistema."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "As prateleiras flutuantes usam Liquid Glass escuro; as definições seguem a aparência e acessibilidade do sistema."
+            "value": "As prateleiras flutuantes usam Liquid Glass adaptável com profundidade subtil; as definições seguem a aparência e acessibilidade do sistema."
           }
         }
       }

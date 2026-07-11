@@ -12,10 +12,17 @@ struct ShelfMenuContent: View {
     let onChange: () -> Void
 
     var body: some View {
+        let applications = openWithApplications
+        let services = sharingServices
+        let actions = availableActions
+        let orderedActions = BuiltinActionID.allCases.filter(
+            actions.contains
+        )
+
         Group {
-            if !openWithApplications.isEmpty {
+            if !applications.isEmpty {
                 Menu("Open With", systemImage: "square.stack.3d.up") {
-                    ForEach(openWithApplications, id: \.self) { applicationURL in
+                    ForEach(applications, id: \.self) { applicationURL in
                         Button(applicationName(applicationURL)) {
                             open(with: applicationURL)
                         }
@@ -31,9 +38,9 @@ struct ShelfMenuContent: View {
             Button("Quick Look", systemImage: "eye", action: onQuickLook)
                 .disabled(fileURLs.isEmpty)
 
-            if !sharingServices.isEmpty {
+            if !services.isEmpty {
                 Divider()
-                ForEach(Array(sharingServices.enumerated()), id: \.offset) { _, service in
+                ForEach(Array(services.enumerated()), id: \.offset) { _, service in
                     Button {
                         service.perform(withItems: sharingItems)
                     } label: {
@@ -51,12 +58,12 @@ struct ShelfMenuContent: View {
             Button("Add From Clipboard", systemImage: "clipboard", action: onAddClipboard)
             Button(copyTitle, systemImage: "doc.on.doc", action: copyItems)
 
-            if availableActions.contains(.copyTo) {
+            if actions.contains(.copyTo) {
                 Button("Copy to…", systemImage: "arrow.right.doc.on.clipboard") {
                     onAction(.copyTo)
                 }
             }
-            if availableActions.contains(.moveTo) {
+            if actions.contains(.moveTo) {
                 Button("Move to…", systemImage: "arrow.right.circle") {
                     onAction(.moveTo)
                 }
@@ -136,12 +143,6 @@ struct ShelfMenuContent: View {
 
     private var availableActions: Set<BuiltinActionID> {
         BuiltinActionCatalog.availableActions(for: selectedItems)
-    }
-
-    private var orderedActions: [BuiltinActionID] {
-        BuiltinActionID.allCases.filter {
-            availableActions.contains($0)
-        }
     }
 
     private var openWithApplications: [URL] {

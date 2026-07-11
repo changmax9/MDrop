@@ -75,7 +75,7 @@ private struct NotchDropView: View {
         HStack(spacing: 9) {
             Image(systemName: "square.stack.3d.up.fill")
             Text("Drop to MDrop")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .medium))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .glassEffect(
@@ -91,7 +91,7 @@ private struct NotchDropView: View {
         .overlay {
             if isTargeted {
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(.tint, lineWidth: 3)
+                    .stroke(.tint, lineWidth: 1.5)
             }
         }
         .padding(5)

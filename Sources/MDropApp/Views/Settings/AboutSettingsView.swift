@@ -11,18 +11,15 @@ struct AboutSettingsView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("About MDrop")
-                        .font(.title2.weight(.semibold))
+                        .font(.title2.weight(.medium))
                     Text("Local-first")
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
             }
-            .padding(16)
-            .glassEffect(
-                .regular,
-                in: .rect(cornerRadius: 18)
-            )
+            .padding(.vertical, 10)
+            .padding(.horizontal, 4)
         }
 
         Section("Version") {

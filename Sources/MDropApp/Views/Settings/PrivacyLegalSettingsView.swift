@@ -38,24 +38,20 @@ struct PrivacyLegalSettingsView: View {
     }
 
     private var badgeRow: some View {
-        GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 8) {
-                privacyBadge("Local-first", systemImage: "internaldrive")
-                privacyBadge("No cloud uploads", systemImage: "icloud.slash")
-                privacyBadge("No telemetry", systemImage: "waveform.slash")
-            }
+        HStack(spacing: 8) {
+            privacyBadge("Local-first", systemImage: "internaldrive")
+            privacyBadge("No cloud uploads", systemImage: "icloud.slash")
+            privacyBadge("No telemetry", systemImage: "waveform.slash")
         }
     }
 
     private var badgeColumn: some View {
-        GlassEffectContainer(spacing: 6) {
-            VStack(alignment: .leading, spacing: 6) {
-                privacyBadge("Local-first", systemImage: "internaldrive")
-                privacyBadge("No cloud uploads", systemImage: "icloud.slash")
-                privacyBadge("No telemetry", systemImage: "waveform.slash")
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 6) {
+            privacyBadge("Local-first", systemImage: "internaldrive")
+            privacyBadge("No cloud uploads", systemImage: "icloud.slash")
+            privacyBadge("No telemetry", systemImage: "waveform.slash")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func privacyBadge(
@@ -63,9 +59,10 @@ struct PrivacyLegalSettingsView: View {
         systemImage: String
     ) -> some View {
         Label(title, systemImage: systemImage)
-            .font(.caption.weight(.medium))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .glassEffect(.regular, in: .capsule)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(.quaternary, in: .capsule)
     }
 }

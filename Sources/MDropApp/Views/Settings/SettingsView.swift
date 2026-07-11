@@ -164,7 +164,7 @@ struct SettingsView: View {
             }
             Section("Glass") {
                 Text(
-                    "Floating Shelves use dark Liquid Glass; settings follow the system appearance and accessibility preferences."
+                    "Floating Shelves use adaptive Liquid Glass with restrained depth; settings follow system appearance and accessibility preferences."
                 )
                 .fixedSize(horizontal: false, vertical: true)
                 .foregroundStyle(.secondary)

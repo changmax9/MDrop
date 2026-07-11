@@ -146,9 +146,17 @@ struct CompactStackedShelfView: View {
             size: CGSize(width: 70, height: 90)
         )
         .shadow(
-            color: .black.opacity(isHovering ? 0.26 : 0.18),
-            radius: isHovering ? 9 : 5,
-            y: isHovering ? 5 : 3
+            color: .black.opacity(
+                isHovering
+                    ? ShelfChromeStyle.cardHoverShadowOpacity
+                    : ShelfChromeStyle.cardRestingShadowOpacity
+            ),
+            radius: isHovering
+                ? ShelfChromeStyle.cardHoverShadowRadius
+                : ShelfChromeStyle.cardRestingShadowRadius,
+            y: isHovering
+                ? ShelfChromeStyle.cardHoverShadowY
+                : ShelfChromeStyle.cardRestingShadowY
         )
         .scaleEffect(isHovering && !reduceMotion ? 1.012 : 1)
         .offset(y: isHovering && !reduceMotion ? -1 : 0)
@@ -156,22 +164,22 @@ struct CompactStackedShelfView: View {
     }
 
     private var detailButton: some View {
-        Button(action: onExpand) {
+        let currentLabel = label
+        return Button(action: onExpand) {
             HStack(spacing: 5) {
                 ShelfMarqueeText(
-                    text: label,
+                    text: currentLabel,
                     isHovering: isHovering,
                     viewportWidth: 88,
                     viewportHeight: 20
                 )
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 9, weight: .semibold))
                     .frame(width: 9)
                     .zIndex(1)
             }
             .padding(.horizontal, 8)
             .frame(width: 126, height: 29)
-            .background(.black.opacity(0.025), in: .capsule)
             .glassEffect(.regular.interactive(), in: .capsule)
             .clipShape(Capsule())
         }
@@ -179,7 +187,10 @@ struct CompactStackedShelfView: View {
         .frame(width: 126, height: 29)
         .help("Show Shelf Details")
         .accessibilityLabel(
-            AppLocalization.format("Show Shelf Details, %@", label)
+            AppLocalization.format(
+                "Show Shelf Details, %@",
+                currentLabel
+            )
         )
     }
 

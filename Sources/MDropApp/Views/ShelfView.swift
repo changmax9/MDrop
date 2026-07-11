@@ -1,6 +1,5 @@
 import AppKit
 import MDropCore
-import PDFKit
 import SwiftUI
 
 struct ShelfView: View {
@@ -45,7 +44,7 @@ struct ShelfView: View {
                 .rect(cornerRadius: animatedCornerRadius)
             )
             .glassEffect(
-                .clear,
+                .regular,
                 in: .rect(cornerRadius: animatedCornerRadius)
             )
             .glassEffectID(
@@ -83,7 +82,12 @@ struct ShelfView: View {
                 cornerRadius: animatedCornerRadius,
                 style: .continuous
             )
-            .stroke(.primary.opacity(0.16), lineWidth: 0.6)
+            .stroke(
+                .primary.opacity(
+                    ShelfChromeStyle.outerStrokeOpacity
+                ),
+                lineWidth: ShelfChromeStyle.outerStrokeWidth
+            )
             .scaleEffect(
                 x: resolvedSurfaceScaleX,
                 y: resolvedSurfaceScaleY
@@ -458,8 +462,12 @@ struct ShelfCircleControlLabel: View {
                             ? hoverShadowOpacity
                             : restingShadowOpacity
                     ),
-                    radius: isHovered ? 7 : 4,
-                    y: isHovered ? 3 : 2
+                    radius: isHovered
+                        ? ShelfChromeStyle.controlHoverShadowRadius
+                        : ShelfChromeStyle.controlRestingShadowRadius,
+                    y: isHovered
+                        ? ShelfChromeStyle.controlHoverShadowY
+                        : ShelfChromeStyle.controlRestingShadowY
                 )
 
             Image(systemName: systemName)
@@ -468,7 +476,7 @@ struct ShelfCircleControlLabel: View {
                         size:
                             ShelfMotionProfile.reference
                                 .controlIconPointSize,
-                        weight: .semibold
+                        weight: .medium
                     )
                 )
                 .foregroundStyle(iconColor)
@@ -510,22 +518,34 @@ struct ShelfCircleControlLabel: View {
 
     private var surfaceColor: Color {
         colorScheme == .dark
-            ? .white.opacity(0.075)
-            : .black.opacity(0.055)
+            ? .white.opacity(
+                ShelfChromeStyle.controlSurfaceOpacityDark
+            )
+            : .black.opacity(
+                ShelfChromeStyle.controlSurfaceOpacityLight
+            )
     }
 
     private var outlineColor: Color {
         colorScheme == .dark
-            ? .white.opacity(0.11)
-            : .black.opacity(0.07)
+            ? .white.opacity(
+                ShelfChromeStyle.controlOutlineOpacityDark
+            )
+            : .black.opacity(
+                ShelfChromeStyle.controlOutlineOpacityLight
+            )
     }
 
     private var hoverShadowOpacity: Double {
-        colorScheme == .dark ? 0.48 : 0.24
+        colorScheme == .dark
+            ? ShelfChromeStyle.controlHoverShadowOpacityDark
+            : ShelfChromeStyle.controlHoverShadowOpacityLight
     }
 
     private var restingShadowOpacity: Double {
-        colorScheme == .dark ? 0.34 : 0.13
+        colorScheme == .dark
+            ? ShelfChromeStyle.controlRestingShadowOpacityDark
+            : ShelfChromeStyle.controlRestingShadowOpacityLight
     }
 
     private var reduceMotion: Bool {
@@ -597,6 +617,7 @@ private struct ShelfDetailView: View {
     let onClose: () -> Void
     @State private var viewMode: ShelfDetailViewMode = .list
     @State private var automation = AutomationStore.shared
+    @State private var fileMetadata: [UUID: ShelfFileMetadata] = [:]
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
 
@@ -613,7 +634,7 @@ private struct ShelfDetailView: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(detailTitle)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13, weight: .medium))
                     Text(sizeSummary)
                         .font(.system(size: 9))
                         .foregroundStyle(.secondary)
@@ -632,15 +653,42 @@ private struct ShelfDetailView: View {
             detailContent
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task(id: store.shelf.items) {
+            let items = store.shelf.items
+            let currentIDs = Set(items.map(\.id))
+            fileMetadata = fileMetadata.filter {
+                currentIDs.contains($0.key)
+            }
+            while !Task.isCancelled {
+                let loadedMetadata = await ShelfFileMetadataLoader.metadata(
+                    for: items
+                )
+                guard !Task.isCancelled else { return }
+                fileMetadata = loadedMetadata
+                do {
+                    try await Task.sleep(
+                        for: ShelfFileMetadataLoader.refreshInterval
+                    )
+                } catch {
+                    return
+                }
+            }
+        }
     }
 
     private var detailContent: some View {
-        ZStack {
+        let selectedDragItems = store.shelf.items.filter {
+            store.selectedItemIDs.contains($0.id)
+        }
+        return ZStack {
             if viewMode == .grid {
                 ScrollView(.horizontal) {
                     LazyHStack(alignment: .top, spacing: 18) {
                         ForEach(store.shelf.items) { item in
-                            detailGridItem(item)
+                            detailGridItem(
+                                item,
+                                selectedDragItems: selectedDragItems
+                            )
                         }
 
                         revealInFinderTile
@@ -654,7 +702,10 @@ private struct ShelfDetailView: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(store.shelf.items) { item in
-                            detailListItem(item)
+                            detailListItem(
+                                item,
+                                selectedDragItems: selectedDragItems
+                            )
                         }
                     }
                     .padding(.top, 14)
@@ -728,7 +779,10 @@ private struct ShelfDetailView: View {
         }
     }
 
-    private func detailGridItem(_ item: ShelfItemRecord) -> some View {
+    private func detailGridItem(
+        _ item: ShelfItemRecord,
+        selectedDragItems: [ShelfItemRecord]
+    ) -> some View {
         VStack(spacing: 2) {
             ZStack {
                 ShelfThumbnailView(
@@ -736,7 +790,10 @@ private struct ShelfDetailView: View {
                     size: CGSize(width: 52, height: 68)
                 )
                 ShelfItemsDragSourceView(
-                    items: dragItems(startingWith: item),
+                    items: dragItems(
+                        startingWith: item,
+                        selectedItems: selectedDragItems
+                    ),
                     onDraggingChanged: { _ in }
                 )
                 .frame(width: 52, height: 68)
@@ -755,7 +812,9 @@ private struct ShelfDetailView: View {
         .padding(.top, 10)
         .background(
             store.selectedItemIDs.contains(item.id)
-                ? Color.accentColor.opacity(0.11)
+                ? Color.accentColor.opacity(
+                    ShelfChromeStyle.selectionOpacity
+                )
                 : .clear,
             in: .rect(cornerRadius: 10)
         )
@@ -784,7 +843,10 @@ private struct ShelfDetailView: View {
         }
     }
 
-    private func detailListItem(_ item: ShelfItemRecord) -> some View {
+    private func detailListItem(
+        _ item: ShelfItemRecord,
+        selectedDragItems: [ShelfItemRecord]
+    ) -> some View {
         HStack(spacing: 10) {
             ZStack {
                 ShelfThumbnailView(
@@ -792,7 +854,10 @@ private struct ShelfDetailView: View {
                     size: CGSize(width: 20, height: 28)
                 )
                 ShelfItemsDragSourceView(
-                    items: dragItems(startingWith: item),
+                    items: dragItems(
+                        startingWith: item,
+                        selectedItems: selectedDragItems
+                    ),
                     onDraggingChanged: { _ in }
                 )
                 .frame(width: 28, height: 30)
@@ -823,7 +888,9 @@ private struct ShelfDetailView: View {
         .padding(.vertical, 6)
         .background(
             store.selectedItemIDs.contains(item.id)
-                ? Color.accentColor.opacity(0.11)
+                ? Color.accentColor.opacity(
+                    ShelfChromeStyle.selectionOpacity
+                )
                 : .clear,
             in: .rect(cornerRadius: 10)
         )
@@ -872,8 +939,11 @@ private struct ShelfDetailView: View {
     }
 
     private var sizeSummary: String {
-        let totalByteCount = store.shelf.items.reduce(Int64.zero) {
-            $0 + byteCount(for: $1)
+        guard fileMetadata.count == store.shelf.items.count else {
+            return "—"
+        }
+        let totalByteCount = fileMetadata.values.reduce(Int64.zero) {
+            $0 + $1.byteCount
         }
         return ByteCountFormatter.string(
             fromByteCount: totalByteCount,
@@ -882,52 +952,36 @@ private struct ShelfDetailView: View {
     }
 
     private func sizeSummary(for item: ShelfItemRecord) -> String {
-        ByteCountFormatter.string(
-            fromByteCount: byteCount(for: item),
+        guard let metadata = fileMetadata[item.id] else {
+            return "—"
+        }
+        return ByteCountFormatter.string(
+            fromByteCount: metadata.byteCount,
             countStyle: .file
-        )
-    }
-
-    private func byteCount(for item: ShelfItemRecord) -> Int64 {
-        guard let url = item.fileURL else { return 0 }
-        let values = try? url.resourceValues(
-            forKeys: [
-                .fileSizeKey,
-                .totalFileAllocatedSizeKey
-            ]
-        )
-        return Int64(
-            values?.totalFileAllocatedSize
-                ?? values?.fileSize
-                ?? 0
         )
     }
 
     private func secondaryMetadata(
         for item: ShelfItemRecord
     ) -> String? {
-        guard let url = item.fileURL,
-              url.pathExtension.lowercased() == "pdf",
-              let document = PDFDocument(url: url)
-        else { return nil }
-
-        return document.pageCount == 1
+        guard let pageCount = fileMetadata[item.id]?.pdfPageCount else {
+            return nil
+        }
+        return pageCount == 1
             ? AppLocalization.string("1 page")
             : AppLocalization.format(
                 "%lld pages",
-                Int64(document.pageCount)
+                Int64(pageCount)
             )
     }
 
     private func dragItems(
-        startingWith item: ShelfItemRecord
+        startingWith item: ShelfItemRecord,
+        selectedItems: [ShelfItemRecord]
     ) -> [ShelfItemRecord] {
-        ShelfDragSelection.items(
-            from: store.shelf.items,
-            selectedItemIDs: store.selectedItemIDs,
-            initiatingItemID: item.id,
-            dragsEntireShelf: false
-        )
+        store.selectedItemIDs.contains(item.id)
+            ? selectedItems
+            : [item]
     }
 
     private var selectedItems: [ShelfItemRecord] {
@@ -988,7 +1042,6 @@ private struct ShelfDetailModePicker: View {
                 modeButton(.list, systemName: "list.bullet")
             }
             .frame(width: 60, height: 32)
-            .background(.black.opacity(0.025), in: .capsule)
             .glassEffect(.regular, in: .capsule)
             .clipShape(Capsule())
         }
@@ -1061,14 +1114,14 @@ private struct ShelfDetailModePicker: View {
 
     private var selectedSurfaceColor: Color {
         colorScheme == .dark
-            ? .white.opacity(0.13)
-            : .black.opacity(0.075)
+            ? .white.opacity(0.09)
+            : .black.opacity(0.055)
     }
 
     private var hoveredSurfaceColor: Color {
         colorScheme == .dark
-            ? .white.opacity(0.07)
-            : .black.opacity(0.035)
+            ? .white.opacity(0.045)
+            : .black.opacity(0.025)
     }
 
     private var reduceMotion: Bool {
@@ -1197,8 +1250,14 @@ private struct CommandBarView: View {
         }
         .padding(8)
         .frame(maxWidth: 330)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
-        .shadow(radius: 22, y: 12)
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .shadow(
+            color: .black.opacity(
+                ShelfChromeStyle.commandBarShadowOpacity
+            ),
+            radius: ShelfChromeStyle.commandBarShadowRadius,
+            y: ShelfChromeStyle.commandBarShadowY
+        )
         .onAppear { isFocused = true }
     }
 
@@ -1296,7 +1355,11 @@ private struct ShelfItemRow: View {
         }
         .padding(7)
         .background(
-            isSelected ? Color.accentColor.opacity(0.22) : .clear,
+            isSelected
+                ? Color.accentColor.opacity(
+                    ShelfChromeStyle.reorderSelectionOpacity
+                )
+                : .clear,
             in: .rect(cornerRadius: 11)
         )
         .dropDestination(for: String.self) { values, _ in
@@ -1334,7 +1397,13 @@ private struct ShelfItemIcon: View {
             .resizable()
             .aspectRatio(contentMode: .fit)
             .frame(width: size, height: size)
-            .shadow(radius: 5, y: 3)
+            .shadow(
+                color: .black.opacity(
+                    ShelfChromeStyle.itemIconShadowOpacity
+                ),
+                radius: ShelfChromeStyle.itemIconShadowRadius,
+                y: ShelfChromeStyle.itemIconShadowY
+            )
             .accessibilityLabel(item.displayName)
     }
 
