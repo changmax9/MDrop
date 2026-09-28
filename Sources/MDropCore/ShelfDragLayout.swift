@@ -15,27 +15,27 @@ public struct ShelfDragLayout: Equatable, Sendable {
     public static func compact(panelSize: CGSize) -> Self {
         Self(interactiveRegions: [
             CGRect(
-                x: 7,
-                y: panelSize.height - 39,
+                x: 14,
+                y: panelSize.height - 46,
                 width: 32,
                 height: 32
             ),
             CGRect(
-                x: panelSize.width - 39,
-                y: panelSize.height - 39,
+                x: panelSize.width - 46,
+                y: panelSize.height - 46,
                 width: 32,
                 height: 32
             ),
             CGRect(x: 48, y: 45, width: 102, height: 118),
-            CGRect(x: 32, y: 5, width: 134, height: 34)
+            CGRect(x: panelSize.width / 2 - 54, y: 10, width: 108, height: 37)
         ])
     }
 
     public static func empty(panelSize: CGSize) -> Self {
         Self(interactiveRegions: [
             CGRect(
-                x: 7,
-                y: panelSize.height - 39,
+                x: 14,
+                y: panelSize.height - 46,
                 width: 32,
                 height: 32
             )
@@ -46,14 +46,14 @@ public struct ShelfDragLayout: Equatable, Sendable {
         Self(interactiveRegions: [
             CGRect(
                 x: 8,
-                y: panelSize.height - 48,
+                y: panelSize.height - 54,
                 width: 48,
                 height: 40
             ),
             CGRect(
-                x: panelSize.width - 110,
-                y: panelSize.height - 48,
-                width: 102,
+                x: panelSize.width - 120,
+                y: panelSize.height - 54,
+                width: 112,
                 height: 40
             ),
             CGRect(

@@ -1,6 +1,25 @@
 import CoreGraphics
 import Foundation
 
+public enum ShelfResizeAxisAnchor: Equatable, Sendable {
+    case minimum
+    case center
+    case maximum
+}
+
+public struct ShelfResizeAnchor: Equatable, Sendable {
+    public let horizontal: ShelfResizeAxisAnchor
+    public let vertical: ShelfResizeAxisAnchor
+
+    public init(
+        horizontal: ShelfResizeAxisAnchor,
+        vertical: ShelfResizeAxisAnchor
+    ) {
+        self.horizontal = horizontal
+        self.vertical = vertical
+    }
+}
+
 public enum ShelfPanelGeometry {
     public static func draggedOrigin(
         from startingWindowOrigin: CGPoint,
@@ -70,6 +89,37 @@ public enum ShelfPanelGeometry {
             width: size.width,
             height: size.height
         )
+    }
+
+    public static func resizeAnchor(
+        from sourceFrame: CGRect,
+        to targetFrame: CGRect,
+        centerTolerance: CGFloat = 5
+    ) -> ShelfResizeAnchor {
+        ShelfResizeAnchor(
+            horizontal: axisAnchor(
+                sourceCenter: sourceFrame.midX,
+                targetCenter: targetFrame.midX,
+                tolerance: centerTolerance
+            ),
+            vertical: axisAnchor(
+                sourceCenter: sourceFrame.midY,
+                targetCenter: targetFrame.midY,
+                tolerance: centerTolerance
+            )
+        )
+    }
+
+    private static func axisAnchor(
+        sourceCenter: CGFloat,
+        targetCenter: CGFloat,
+        tolerance: CGFloat
+    ) -> ShelfResizeAxisAnchor {
+        let delta = targetCenter - sourceCenter
+        if abs(delta) <= max(0, tolerance) {
+            return .center
+        }
+        return delta < 0 ? .minimum : .maximum
     }
 
     private static func constrainedOrigin(

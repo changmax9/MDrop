@@ -20,14 +20,17 @@ public struct ShelfLayoutTransitionTiming: Equatable, Sendable {
 
     public static func resolve(
         profile: ShelfMotionProfile,
-        reduceMotion: Bool
+        reduceMotion: Bool,
+        frameDuration: TimeInterval? = nil
     ) -> Self {
         guard reduceMotion else {
+            let resolvedFrameDuration = frameDuration
+                ?? profile.frameMorphDuration
             return Self(
-                frameDuration: profile.frameMorphDuration,
+                frameDuration: resolvedFrameDuration,
                 contentFadeDuration: profile.layoutFadeDuration,
                 contentSwapDelay: profile.layoutFadeDuration,
-                completionDelay: profile.frameMorphDuration
+                completionDelay: resolvedFrameDuration
             )
         }
 

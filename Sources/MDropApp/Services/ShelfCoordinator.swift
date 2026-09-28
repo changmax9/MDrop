@@ -33,21 +33,15 @@ final class ShelfCoordinator {
         with representations: [DropRepresentation] = []
     ) {
         let shelf = ShelfRecord()
-        show(shelf, at: point)
+        show(
+            shelf,
+            at: point,
+            activatesAsNewShelf: true
+        )
         persistVisible()
         guard !representations.isEmpty else { return }
 
-        Task {
-            do {
-                let items = try await ingestQueue.ingest(representations)
-                guard let panel = panels[shelf.id] else { return }
-                panel.store.append(items)
-                panel.refreshSize()
-                persistVisible()
-            } catch {
-                panels[shelf.id]?.store.errorMessage = error.localizedDescription
-            }
-        }
+        receive(representations, into: shelf.id)
     }
 
     func createShelf(with representations: [DropRepresentation]) {
@@ -60,12 +54,15 @@ final class ShelfCoordinator {
     }
 
     func receive(_ representations: [DropRepresentation], into shelfID: UUID) {
-        guard panels[shelfID] != nil else { return }
+        guard !representations.isEmpty, let store = panels[shelfID]?.store else { return }
+        store.beginImport()
         Task {
+            defer { store.endImport() }
             do {
                 let items = try await ingestQueue.ingest(representations)
                 guard let panel = panels[shelfID] else { return }
                 panel.store.append(items)
+                panel.store.confirmDrop(count: items.count)
                 panel.refreshSize()
                 persistVisible()
             } catch {
@@ -143,27 +140,6 @@ final class ShelfCoordinator {
         panel.panel.makeKeyAndOrderFront(nil)
     }
 
-    func receiveWatchedFiles(
-        _ urls: [URL],
-        definition: WatchFolderDefinition
-    ) {
-        guard !urls.isEmpty else { return }
-        if definition.copiesToClipboard {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.writeObjects(urls as [NSURL])
-        }
-
-        let representations = urls.map(DropRepresentation.file)
-        if definition.destination == .lastShelf,
-           let latest = panels.values.max(by: {
-               $0.store.shelf.modifiedAt < $1.store.shelf.modifiedAt
-           }) {
-            receive(representations, into: latest.store.shelf.id)
-        } else {
-            createShelf(with: representations)
-        }
-    }
-
     func shelfDidChange(_ shelfID: UUID) {
         panels[shelfID]?.refreshSize()
         persistVisible()
@@ -193,7 +169,8 @@ final class ShelfCoordinator {
     private func show(
         _ shelf: ShelfRecord,
         at point: CGPoint? = nil,
-        animatesInitialAppearance: Bool = true
+        animatesInitialAppearance: Bool = true,
+        activatesAsNewShelf: Bool = false
     ) {
         if let existing = panels[shelf.id] {
             existing.panel.orderFrontRegardless()
@@ -215,6 +192,19 @@ final class ShelfCoordinator {
         )
         panels[shelf.id] = panel
         panel.show()
+        if Self.shouldActivateShelf(
+            isNewShelf: activatesAsNewShelf,
+            preferenceEnabled: AppPreferences.activateNewShelves()
+        ) {
+            panel.panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    static func shouldActivateShelf(
+        isNewShelf: Bool,
+        preferenceEnabled: Bool
+    ) -> Bool {
+        isNewShelf && preferenceEnabled
     }
 
     private func persistVisible() {

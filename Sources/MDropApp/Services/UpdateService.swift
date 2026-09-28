@@ -30,33 +30,10 @@ final class UpdateService {
     private let controller: SPUStandardUpdaterController
     @ObservationIgnored
     private let userDriverDelegate: UpdateUserDriverDelegate
+    @ObservationIgnored
+    private var canCheckForUpdatesObservation: NSKeyValueObservation?
 
     private(set) var canCheckForUpdates: Bool
-    var automaticallyChecksForUpdates: Bool {
-        didSet {
-            guard
-                automaticallyChecksForUpdates
-                    != controller.updater.automaticallyChecksForUpdates
-            else {
-                return
-            }
-            controller.updater.automaticallyChecksForUpdates =
-                automaticallyChecksForUpdates
-            refresh()
-        }
-    }
-    var automaticallyDownloadsUpdates: Bool {
-        didSet {
-            guard
-                automaticallyDownloadsUpdates
-                    != controller.updater.automaticallyDownloadsUpdates
-            else {
-                return
-            }
-            controller.updater.automaticallyDownloadsUpdates =
-                automaticallyDownloadsUpdates
-        }
-    }
 
     init(startingUpdater: Bool) {
         let userDriverDelegate = UpdateUserDriverDelegate()
@@ -68,10 +45,6 @@ final class UpdateService {
         self.userDriverDelegate = userDriverDelegate
         self.controller = controller
         canCheckForUpdates = controller.updater.canCheckForUpdates
-        automaticallyChecksForUpdates =
-            controller.updater.automaticallyChecksForUpdates
-        automaticallyDownloadsUpdates =
-            controller.updater.automaticallyDownloadsUpdates
 
         if startingUpdater {
             Task { @MainActor [weak self] in
@@ -79,14 +52,19 @@ final class UpdateService {
                 self?.refresh()
             }
         }
+
+        canCheckForUpdatesObservation = controller.updater.observe(
+            \.canCheckForUpdates,
+            options: [.new]
+        ) { [weak self] _, _ in
+            Task { @MainActor [weak self] in
+                self?.refresh()
+            }
+        }
     }
 
     func refresh() {
         canCheckForUpdates = controller.updater.canCheckForUpdates
-        automaticallyChecksForUpdates =
-            controller.updater.automaticallyChecksForUpdates
-        automaticallyDownloadsUpdates =
-            controller.updater.automaticallyDownloadsUpdates
     }
 
     func checkForUpdates() {

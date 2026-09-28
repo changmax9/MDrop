@@ -13,7 +13,8 @@ struct CompactStackedShelfView: View {
     let onChange: () -> Void
     let onClose: () -> Void
 
-    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
+    @AppStorage(AppPreferences.reduceMotionKey)
+    private var reduceShelfMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var isHovering = false
     @State private var isDraggingItems = false
@@ -38,12 +39,14 @@ struct CompactStackedShelfView: View {
             detailButton
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, 8)
-                .padding(.bottom, 5)
+                .padding(.bottom, 9)
                 .opacity(isDraggingItems ? 0.22 : 1)
         }
         .padding(5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(.rect(cornerRadius: 28))
+        .contentShape(
+            .rect(cornerRadius: ShelfDetailLayout.cornerRadius)
+        )
         .contextMenu {
             ShelfMenuContent(
                 store: store,
@@ -79,7 +82,7 @@ struct CompactStackedShelfView: View {
         Button(action: onClose) {
             ShelfCircleControlLabel(systemName: "xmark")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ShelfControlButtonStyle())
         .help("Close Shelf")
         .accessibilityLabel("Close Shelf")
     }
@@ -99,6 +102,9 @@ struct CompactStackedShelfView: View {
                 onAction: onAction,
                 onChange: onChange
             )
+        }
+        .popover(isPresented: $store.isCustomizationPresented, arrowEdge: .bottom) {
+            ShelfCustomizationView(store: store, onChange: onChange)
         }
     }
 
@@ -131,13 +137,34 @@ struct CompactStackedShelfView: View {
 
             ShelfItemsDragSourceView(
                 items: dragItems,
-                onDraggingChanged: { isDraggingItems = $0 }
+                onDraggingChanged: { isDraggingItems = $0 },
+                onDragCompleted: handleDragCompletion,
+                onDoubleClick: onQuickLook
             )
             .frame(width: 92, height: 104)
             .zIndex(10)
         }
         .frame(width: 92, height: 104)
         .offset(y: -8)
+    }
+
+    private func handleDragCompletion(
+        _ completion: ShelfItemsDragCompletion
+    ) {
+        let action = ShelfItemsDragBehavior.completionAction(
+            shelfItemIDs: store.shelf.items.map(\.id),
+            completion: completion
+        )
+        switch action {
+        case .none:
+            break
+        case let .remove(itemIDs):
+            store.remove(itemIDs)
+            onChange()
+        case let .close(itemIDs):
+            store.remove(itemIDs)
+            onClose()
+        }
     }
 
     private func thumbnailCard(_ item: ShelfItemRecord) -> some View {
@@ -158,8 +185,6 @@ struct CompactStackedShelfView: View {
                 ? ShelfChromeStyle.cardHoverShadowY
                 : ShelfChromeStyle.cardRestingShadowY
         )
-        .scaleEffect(isHovering && !reduceMotion ? 1.012 : 1)
-        .offset(y: isHovering && !reduceMotion ? -1 : 0)
         .animation(hoverAnimation, value: isHovering)
     }
 
@@ -170,7 +195,7 @@ struct CompactStackedShelfView: View {
                 ShelfMarqueeText(
                     text: currentLabel,
                     isHovering: isHovering,
-                    viewportWidth: 88,
+                    viewportWidth: 62,
                     viewportHeight: 20
                 )
                 Image(systemName: "chevron.right")
@@ -179,12 +204,11 @@ struct CompactStackedShelfView: View {
                     .zIndex(1)
             }
             .padding(.horizontal, 8)
-            .frame(width: 126, height: 29)
-            .glassEffect(.regular.interactive(), in: .capsule)
-            .clipShape(Capsule())
+            .frame(width: 100, height: 29)
+            .modifier(ShelfGlassSurface(shape: Capsule(), interactive: true))
         }
-        .buttonStyle(.plain)
-        .frame(width: 126, height: 29)
+        .buttonStyle(ShelfControlButtonStyle())
+        .frame(width: 100, height: 29)
         .help("Show Shelf Details")
         .accessibilityLabel(
             AppLocalization.format(
@@ -195,6 +219,9 @@ struct CompactStackedShelfView: View {
     }
 
     private var label: String {
+        if let preview = store.instantActionPreviewTitle {
+            return preview
+        }
         if !store.shelf.name.isEmpty {
             return store.shelf.name
         }

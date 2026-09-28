@@ -17,11 +17,8 @@ Extension. System sharing remains available from inside each Shelf.
 - Selection, reordering, Quick Look, outbound dragging, recent and pinned Shelves
 - Image resize/convert/compress/metadata removal/stitch/OCR/PDF actions
 - ZIP, copy, move, rename, path copy, clipboard, Trash, and system sharing
-- Configurable Instant Actions and reusable Custom Action presets
-- Shell, AppleScript, and Automator actions with logs, timeouts, and cancellation
-- Screenshot/folder monitoring with filtering and batch debounce
 - Services, App Intents/Shortcuts, file-open events, and `mdrop://` URLs
-- English and Simplified Chinese String Catalog
+- App-wide language selection and a compact native Settings page
 
 ## Build and run
 

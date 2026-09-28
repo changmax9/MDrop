@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="MDrop"
-VERSION="0.2.3"
+VERSION="0.3.0"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist/release"
 STAGING_DIR="$DIST_DIR/dmg-root"

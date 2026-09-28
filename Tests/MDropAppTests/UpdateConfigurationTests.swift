@@ -62,8 +62,8 @@ struct UpdateConfigurationTests {
 
         #expect(info.contains("$(MARKETING_VERSION)"))
         #expect(info.contains("$(CURRENT_PROJECT_VERSION)"))
-        #expect(project.contains("MARKETING_VERSION = 0.2.3;"))
-        #expect(project.contains("CURRENT_PROJECT_VERSION = 5;"))
+        #expect(project.contains("MARKETING_VERSION = 0.3.0;"))
+        #expect(project.contains("CURRENT_PROJECT_VERSION = 6;"))
     }
 
     @Test("SwiftPM release bundle can load the embedded framework")
@@ -101,6 +101,25 @@ struct UpdateConfigurationTests {
                 "supportsGentleScheduledUpdateReminders"
             )
         )
+    }
+
+    @Test("Update controls observe when checks become available again")
+    func observesCheckAvailability() throws {
+        let source = try String(
+            contentsOf:
+                repositoryRoot.appending(
+                    path:
+                        "Sources/MDropApp/Services/UpdateService.swift"
+                ),
+            encoding: .utf8
+        )
+
+        #expect(
+            source.contains(
+                "controller.updater.observe("
+            )
+        )
+        #expect(source.contains("\\.canCheckForUpdates"))
     }
 
     @Test("Appcast describes the signed GitHub release")

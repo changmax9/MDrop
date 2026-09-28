@@ -128,6 +128,9 @@ public struct BuiltinActionExecutor: Sendable {
         guard !safeName.isEmpty, safeName != ".", safeName != ".." else {
             throw ActionExecutionError.missingParameter("name")
         }
+        if safeName == source.lastPathComponent {
+            return ActionResult(createdFiles: [source])
+        }
         let destination = uniqueDestination(
             for: safeName,
             in: source.deletingLastPathComponent()
@@ -179,10 +182,10 @@ public struct BuiltinActionExecutor: Sendable {
                 )
                 try FileManager.default.copyItem(at: source, to: target)
             case let .text(value):
-                let target = staging.appending(path: "Text \(index + 1).txt")
+                let target = uniqueDestination(for: "Text \(index + 1).txt", in: staging)
                 try Data(value.utf8).write(to: target)
             case let .url(url):
-                let target = staging.appending(path: "Link \(index + 1).txt")
+                let target = uniqueDestination(for: "Link \(index + 1).txt", in: staging)
                 try Data(url.absoluteString.utf8).write(to: target)
             }
             progress(Double(index + 1) / Double(request.items.count + 1))

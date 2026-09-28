@@ -23,6 +23,7 @@ public enum ShelfColorTag: String, Codable, CaseIterable, Sendable {
     case blue
     case purple
     case pink
+    case brown
 }
 
 public struct FileReference: Codable, Hashable, Sendable {
@@ -92,6 +93,9 @@ public struct ShelfRecord: Identifiable, Codable, Hashable, Sendable {
     public var colorTag: ShelfColorTag
     public var items: [ShelfItemRecord]
     public var isPinned: Bool
+    // Optional for compatibility with shelves saved before these preferences existed.
+    public var alwaysShowsIndicator: Bool?
+    public var keepsInOwnSpace: Bool?
     public var presentationState: ShelfPresentationState
     public var dockedEdge: DockedEdge?
     public let createdAt: Date
@@ -103,6 +107,8 @@ public struct ShelfRecord: Identifiable, Codable, Hashable, Sendable {
         colorTag: ShelfColorTag = .none,
         items: [ShelfItemRecord] = [],
         isPinned: Bool = false,
+        alwaysShowsIndicator: Bool? = nil,
+        keepsInOwnSpace: Bool? = nil,
         presentationState: ShelfPresentationState? = nil,
         dockedEdge: DockedEdge? = nil,
         createdAt: Date = .now,
@@ -113,6 +119,8 @@ public struct ShelfRecord: Identifiable, Codable, Hashable, Sendable {
         self.colorTag = colorTag
         self.items = items
         self.isPinned = isPinned
+        self.alwaysShowsIndicator = alwaysShowsIndicator
+        self.keepsInOwnSpace = keepsInOwnSpace
         self.presentationState = presentationState ?? (items.isEmpty ? .empty : .compact)
         self.dockedEdge = dockedEdge
         self.createdAt = createdAt

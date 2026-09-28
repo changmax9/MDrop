@@ -1,6 +1,22 @@
 import CoreGraphics
+import MDropCore
 
 enum ShelfChromeStyle {
+    static func cornerRadius(for state: ShelfPresentationState) -> CGFloat {
+        switch state {
+        case .empty: CGFloat(ShelfMotionProfile.reference.emptyCornerRadius)
+        case .docked: 20
+        case .compact, .instantActions: 28
+        case .detail: 26
+        }
+    }
+
+    static func surfaceMorphDuration(reduceMotion: Bool) -> Double {
+        reduceMotion
+            ? ShelfMotionProfile.reference.reducedMotionDuration / 2
+            : max(0.01, ShelfMotionProfile.reference.frameMorphDuration - ShelfMotionProfile.reference.layoutFadeDuration)
+    }
+
     static let outerStrokeOpacity = 0.10
     static let outerStrokeWidth: CGFloat = 0.5
 

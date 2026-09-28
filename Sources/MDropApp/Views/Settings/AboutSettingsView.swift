@@ -5,55 +5,76 @@ struct AboutSettingsView: View {
     @State private var updateService = UpdateService.shared
 
     var body: some View {
-        Section {
-            HStack(spacing: 16) {
-                appIcon
+        SettingsPage(
+            "About",
+            subtitle: "Version information and software updates."
+        ) {
+            SettingsCard {
+                appIdentityRow
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("About MDrop")
-                        .font(.title2.weight(.medium))
-                    Text("Local-first")
+                SettingsCardDivider()
+
+                SettingsCardRow(
+                    systemImage: "tag",
+                    title: "Version"
+                ) {
+                    Text(verbatim: shortVersion)
                         .foregroundStyle(.secondary)
                 }
 
-                Spacer()
+                SettingsCardDivider()
+
+                SettingsCardRow(
+                    systemImage: "hammer",
+                    title: "Build"
+                ) {
+                    Text(verbatim: buildNumber)
+                        .foregroundStyle(.secondary)
+                }
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 4)
-        }
 
-        Section("Version") {
-            LabeledContent("Current Version", value: shortVersion)
-            LabeledContent("Build", value: buildNumber)
-            LabeledContent("Minimum macOS", value: "26")
-        }
-
-        Section("Updates") {
-            Button("Check for Updates…") {
-                updateService.checkForUpdates()
+            SettingsCard {
+                SettingsCardRow(
+                    systemImage: "arrow.triangle.2.circlepath",
+                    title: "Updates"
+                ) {
+                    Button("Check for Updates…") {
+                        updateService.checkForUpdates()
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(!updateService.canCheckForUpdates)
+                }
             }
-            .disabled(!updateService.canCheckForUpdates)
 
-            Toggle(
-                "Automatically check for updates",
-                isOn: $updateService.automaticallyChecksForUpdates
-            )
-            Toggle(
-                "Automatically download updates",
-                isOn: $updateService.automaticallyDownloadsUpdates
-            )
-            .disabled(!updateService.automaticallyChecksForUpdates)
-        }
-
-        Section("Application Support") {
-            Button("Reveal Application Support Folder") {
-                NSWorkspace.shared.activateFileViewerSelecting(
-                    [AppPaths.applicationSupport]
+            SettingsCard {
+                SettingsCardRow(
+                    systemImage: "exclamationmark.shield.fill",
+                    title: "Disclaimer",
+                    subtitle: "Please read before using MDrop."
                 )
-            }
-            Button("Open GitHub Project") {
-                NSWorkspace.shared.open(
-                    URL(string: "https://github.com/changmax9/MDrop")!
+
+                SettingsCardDivider()
+
+                disclaimerRow(
+                    number: 1,
+                    title: "Independent Project",
+                    body: "MDrop is an independent project and is not affiliated with, endorsed by, sponsored by, or officially associated with any company, organization, product, or service."
+                )
+
+                SettingsCardDivider()
+
+                disclaimerRow(
+                    number: 2,
+                    title: "Learning & Knowledge Exchange Only",
+                    body: "MDrop is provided solely for learning, research, and knowledge-sharing purposes."
+                )
+
+                SettingsCardDivider()
+
+                disclaimerRow(
+                    number: 3,
+                    title: "Use at Your Own Risk",
+                    body: "MDrop is provided “as is.” You use it at your own risk. To the fullest extent permitted by law, the developer and contributors are not liable for data loss, file damage, indirect loss, disputes, or other consequences arising from its use."
                 )
             }
         }
@@ -62,18 +83,72 @@ struct AboutSettingsView: View {
         }
     }
 
+    private func disclaimerRow(
+        number: Int,
+        title: LocalizedStringKey,
+        body: LocalizedStringKey
+    ) -> some View {
+        HStack(alignment: .top, spacing: 13) {
+            Text(verbatim: String(number))
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.tint)
+                .frame(width: 30, height: 30)
+                .background(
+                    Color.accentColor.opacity(0.12),
+                    in: .rect(cornerRadius: 8)
+                )
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.body.weight(.medium))
+
+                Text(body)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(minHeight: SettingsLayout.cardRowMinimumHeight)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var appIdentityRow: some View {
+        HStack(spacing: 14) {
+            appIcon
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("MDrop")
+                    .font(.body.weight(.semibold))
+                Text(verbatim: "\(shortVersion) (\(buildNumber))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(minHeight: 68)
+    }
+
     @ViewBuilder
     private var appIcon: some View {
         if let image = BrandAssets.applicationIcon() {
             Image(nsImage: image)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 52, height: 52)
+                .frame(width: 42, height: 42)
         } else {
             Image(systemName: "square.stack.3d.up.fill")
-                .font(.system(size: 34, weight: .medium))
+                .font(.system(size: 28, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 52, height: 52)
+                .frame(width: 42, height: 42)
         }
     }
 

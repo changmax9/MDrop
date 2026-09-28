@@ -6,6 +6,93 @@ import Testing
 @MainActor
 @Suite("Native shelf drag source")
 struct ShelfItemsDragSourceViewTests {
+    @Test("Uses Finder modifiers unless always-copy is enabled")
+    func sourceOperationPolicy() {
+        #expect(
+            ShelfItemsDragBehavior.sourceOperationMask(
+                alwaysCopyDraggedItems: false
+            ) == [.copy, .move]
+        )
+        #expect(
+            !ShelfItemsDragBehavior.ignoresModifierKeys(
+                alwaysCopyDraggedItems: false
+            )
+        )
+        #expect(
+            ShelfItemsDragBehavior.sourceOperationMask(
+                alwaysCopyDraggedItems: true
+            ) == .copy
+        )
+        #expect(
+            ShelfItemsDragBehavior.ignoresModifierKeys(
+                alwaysCopyDraggedItems: true
+            )
+        )
+    }
+
+    @Test("Cancelled and Shift-modified drags keep the Shelf")
+    func cancelledAndShiftModifiedDragsKeepShelf() {
+        let itemID = UUID()
+        let cancelled = ShelfItemsDragCompletion(
+            draggedItemIDs: [itemID],
+            operation: [],
+            modifierFlags: []
+        )
+        let shifted = ShelfItemsDragCompletion(
+            draggedItemIDs: [itemID],
+            operation: .copy,
+            modifierFlags: .shift
+        )
+
+        #expect(
+            ShelfItemsDragBehavior.completionAction(
+                shelfItemIDs: [itemID],
+                completion: cancelled
+            ) == .none
+        )
+        #expect(
+            ShelfItemsDragBehavior.completionAction(
+                shelfItemIDs: [itemID],
+                completion: shifted
+            ) == .none
+        )
+    }
+
+    @Test("Successful subset drag removes only dragged items")
+    func successfulSubsetDragRemovesOnlyDraggedItems() {
+        let draggedItemID = UUID()
+        let keptItemID = UUID()
+        let completion = ShelfItemsDragCompletion(
+            draggedItemIDs: [draggedItemID],
+            operation: .move,
+            modifierFlags: []
+        )
+
+        #expect(
+            ShelfItemsDragBehavior.completionAction(
+                shelfItemIDs: [draggedItemID, keptItemID],
+                completion: completion
+            ) == .remove(itemIDs: [draggedItemID])
+        )
+    }
+
+    @Test("Successful whole-Shelf drag closes the Shelf")
+    func successfulWholeShelfDragClosesShelf() {
+        let itemIDs = [UUID(), UUID(), UUID()]
+        let completion = ShelfItemsDragCompletion(
+            draggedItemIDs: Set(itemIDs),
+            operation: .copy,
+            modifierFlags: []
+        )
+
+        #expect(
+            ShelfItemsDragBehavior.completionAction(
+                shelfItemIDs: itemIDs,
+                completion: completion
+            ) == .close(itemIDs: Set(itemIDs))
+        )
+    }
+
     @Test("Creates one pasteboard item for every file")
     func createsOnePasteboardItemForEveryFile() {
         let urls = [

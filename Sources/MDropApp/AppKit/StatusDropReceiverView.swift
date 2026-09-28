@@ -1,33 +1,34 @@
 import AppKit
 import MDropCore
 
-final class StatusDropReceiverView: NSView {
+final class StatusDropReceiverView: DropReceiverNSView {
+    struct DropGatePolicy {
+        let acceptsDrop: Bool
+
+        var advertisedOperation: NSDragOperation {
+            acceptsDrop ? .copy : []
+        }
+
+        var shouldReadPasteboard: Bool {
+            acceptsDrop
+        }
+    }
+
     var onClick: (() -> Void)?
-    var onDrop: (([DropRepresentation]) -> Void)?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        registerForDraggedTypes(
-            [.fileURL, .URL, .string, .png, .tiff] +
-            NSFilePromiseReceiver.readableDraggedTypes.map {
-                NSPasteboard.PasteboardType(rawValue: $0)
-            }
-        )
-    }
-
-    required init?(coder: NSCoder) {
-        nil
-    }
-
+    var canAcceptDrop: () -> Bool = { true }
     override func mouseDown(with event: NSEvent) {
         onClick?()
     }
 
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        .copy
+    override func accepts(_ sender: NSDraggingInfo) -> Bool {
+        dropGatePolicy().shouldReadPasteboard
     }
 
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        DragPasteboardReceiver.perform(sender, onDrop: onDrop)
+    static func dropGatePolicy(isEnabled: Bool) -> DropGatePolicy {
+        DropGatePolicy(acceptsDrop: isEnabled)
+    }
+
+    private func dropGatePolicy() -> DropGatePolicy {
+        Self.dropGatePolicy(isEnabled: canAcceptDrop())
     }
 }

@@ -122,3 +122,56 @@ final class BuiltinActionExecutorTests: XCTestCase {
         XCTAssertEqual(result.createdFiles.first?.lastPathComponent, "escaped.txt")
     }
 }
+
+import Foundation
+import Testing
+@testable import MDropCore
+
+@Suite("File action regressions")
+struct FileActionRegressionTests {
+    @Test("Renaming to the existing name preserves the path and contents")
+    func unchangedName() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appending(path: "Notes.txt")
+        try Data("original".utf8).write(to: source)
+        let items = try DragIngestService(stagingDirectory: directory).ingest([.file(source)])
+        let result = try await BuiltinActionExecutor().run(.rename, request: ActionRequest(
+            items: items, parameters: ["name": .string("Notes.txt")]
+        ))
+        #expect(result.createdFiles.map { $0.resolvingSymlinksInPath() } == [source.resolvingSymlinksInPath()])
+        #expect(try String(contentsOf: source, encoding: .utf8) == "original")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path) == ["Notes.txt"])
+    }
+
+    @Test("ZIP preserves file contents when generated text and link names collide")
+    func archiveNameCollisions() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let text = directory.appending(path: "Text 3.txt")
+        let link = directory.appending(path: "Link 4.txt")
+        try Data("original text file".utf8).write(to: text)
+        try Data("original link file".utf8).write(to: link)
+        let items = try DragIngestService(stagingDirectory: directory).ingest([
+            .file(text), .file(link), .text("pasted text"), .url(URL(string: "https://example.com")!)
+        ])
+        let zip = directory.appending(path: "Archive.zip")
+        _ = try await BuiltinActionExecutor().run(.createArchive, request: ActionRequest(
+            items: items, parameters: ["destination": .url(zip)]
+        ))
+        let unpacked = directory.appending(path: "Unpacked")
+        let process = Process()
+        process.executableURL = URL(filePath: "/usr/bin/ditto")
+        process.arguments = ["-x", "-k", zip.path, unpacked.path]
+        try process.run()
+        process.waitUntilExit()
+        #expect(process.terminationStatus == 0)
+        let root = try #require(FileManager.default.contentsOfDirectory(at: unpacked, includingPropertiesForKeys: nil).first)
+        let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        let contents = try Set(files.map { try String(contentsOf: $0, encoding: .utf8) })
+        #expect(contents == ["original text file", "original link file", "pasted text", "https://example.com"])
+        #expect(files.count == 4)
+    }
+}

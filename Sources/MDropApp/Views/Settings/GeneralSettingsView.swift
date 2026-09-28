@@ -2,42 +2,48 @@ import SwiftUI
 
 struct GeneralSettingsView: View {
     @Bindable var languageController: AppLanguageController
-    @Binding var launchAtLogin: Bool
-    @Binding var showDockIcon: Bool
-    @Binding var copyByDefault: Bool
-    @Binding var autoCloseDetail: Bool
+    @Bindable var launchAtLogin: LaunchAtLoginSettings
 
     var body: some View {
-        Section("Language & Region") {
-            Picker(
-                "Language",
-                selection: $languageController.selection
-            ) {
-                ForEach(AppLanguage.allCases) { language in
-                    Text(language.nativeName)
-                        .tag(language)
+        SettingsPage(
+            "General",
+            subtitle: "Choose MDrop's language and startup behavior."
+        ) {
+            SettingsCard {
+                SettingsCardRow(
+                    systemImage: "globe",
+                    title: "Language",
+                    subtitle: "Language & Region"
+                ) {
+                    SettingsGlassPicker(
+                        title: "Language",
+                        selection: $languageController.selection,
+                        options: AppLanguage.allCases.map {
+                            .init(value: $0, title: $0.nativeName)
+                        }
+                    )
+                    .frame(width: 164)
+                }
+
+                SettingsCardDivider()
+
+                SettingsCardRow(
+                    systemImage: "power",
+                    title: "Launch MDrop at login",
+                    subtitle: "Startup"
+                ) {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { launchAtLogin.isEnabled },
+                            set: { enabled in
+                                launchAtLogin.setEnabled(enabled)
+                            }
+                        )
+                    )
+                    .labelsHidden()
                 }
             }
-        }
-
-        Section("Startup") {
-            Toggle("Launch MDrop at login", isOn: $launchAtLogin)
-            Toggle("Show MDrop in the Dock", isOn: $showDockIcon)
-        }
-
-        Section("File Handling") {
-            LabeledContent("Files") {
-                Text("Files stay in their original locations.")
-                    .foregroundStyle(.secondary)
-            }
-            Toggle(
-                "Always copy items when dragging out",
-                isOn: $copyByDefault
-            )
-            Toggle(
-                "Automatically close Detail View",
-                isOn: $autoCloseDetail
-            )
         }
     }
 }

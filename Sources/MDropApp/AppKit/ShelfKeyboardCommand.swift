@@ -5,6 +5,7 @@ enum ShelfKeyboardCommand: Equatable {
     case commandBar
     case close
     case dismiss
+    case actionMenu
     case toggleDetail
     case quickLook
     case delete
@@ -17,6 +18,12 @@ enum ShelfKeyboardCommand: Equatable {
         keyCode: UInt16? = nil,
         modifierFlags: NSEvent.ModifierFlags
     ) -> Self? {
+        let relevantModifiers = modifierFlags.intersection([
+            .command,
+            .control,
+            .option
+        ])
+
         if let keyCode {
             switch keyCode {
             case UInt16(kVK_Escape):
@@ -27,6 +34,10 @@ enum ShelfKeyboardCommand: Equatable {
                 return .quickLook
             case UInt16(kVK_Delete):
                 return .delete
+            case UInt16(kVK_Return), UInt16(kVK_ANSI_KeypadEnter):
+                if relevantModifiers.isEmpty {
+                    return .actionMenu
+                }
             default:
                 break
             }
@@ -40,16 +51,15 @@ enum ShelfKeyboardCommand: Equatable {
                 return .quickLook
             case "\u{7f}":
                 return .delete
+            case "\r", "\u{3}":
+                if relevantModifiers.isEmpty {
+                    return .actionMenu
+                }
             default:
                 break
             }
         }
 
-        let relevantModifiers = modifierFlags.intersection([
-            .command,
-            .control,
-            .option
-        ])
         guard relevantModifiers == .command else { return nil }
 
         if let characters {
@@ -91,7 +101,7 @@ enum ShelfKeyboardCommand: Equatable {
         switch self {
         case .commandBar, .close, .dismiss:
             true
-        case .toggleDetail, .quickLook, .delete,
+        case .actionMenu, .toggleDetail, .quickLook, .delete,
              .selectAll, .copy, .paste:
             false
         }

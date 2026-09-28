@@ -2,15 +2,85 @@ import AppKit
 import MDropCore
 import SwiftUI
 
+struct ShelfItemsDragCompletion {
+    let draggedItemIDs: Set<UUID>
+    let operation: NSDragOperation
+    let modifierFlags: NSEvent.ModifierFlags
+}
+
+enum ShelfItemsDragCompletionAction: Equatable {
+    case none
+    case remove(itemIDs: Set<UUID>)
+    case close(itemIDs: Set<UUID>)
+}
+
+enum ShelfItemsDragBehavior {
+    static func sourceOperationMask(
+        alwaysCopyDraggedItems: Bool
+    ) -> NSDragOperation {
+        alwaysCopyDraggedItems ? .copy : [.copy, .move]
+    }
+
+    static func ignoresModifierKeys(
+        alwaysCopyDraggedItems: Bool
+    ) -> Bool {
+        alwaysCopyDraggedItems
+    }
+
+    static func completionAction(
+        shelfItemIDs: [UUID],
+        completion: ShelfItemsDragCompletion
+    ) -> ShelfItemsDragCompletionAction {
+        guard !completion.operation.isEmpty,
+              !completion.modifierFlags.contains(.shift) else {
+            return .none
+        }
+
+        let shelfItemIDs = Set(shelfItemIDs)
+        let removedItemIDs = completion.draggedItemIDs
+            .intersection(shelfItemIDs)
+        guard !removedItemIDs.isEmpty else {
+            return .none
+        }
+
+        if shelfItemIDs.subtracting(removedItemIDs).isEmpty {
+            return .close(itemIDs: removedItemIDs)
+        }
+        return .remove(itemIDs: removedItemIDs)
+    }
+}
+
 @MainActor
 struct ShelfItemsDragSourceView: NSViewRepresentable {
     let items: [ShelfItemRecord]
     let onDraggingChanged: (Bool) -> Void
+    let onDragCompleted: (ShelfItemsDragCompletion) -> Void
+    var onClick: (NSEvent.ModifierFlags) -> Void
+    var onDoubleClick: () -> Void
+
+    init(
+        items: [ShelfItemRecord],
+        onDraggingChanged: @escaping (Bool) -> Void,
+        onDragCompleted: @escaping (
+            ShelfItemsDragCompletion
+        ) -> Void = { _ in },
+        onClick: @escaping (NSEvent.ModifierFlags) -> Void = { _ in },
+        onDoubleClick: @escaping () -> Void = {}
+    ) {
+        self.items = items
+        self.onDraggingChanged = onDraggingChanged
+        self.onDragCompleted = onDragCompleted
+        self.onClick = onClick
+        self.onDoubleClick = onDoubleClick
+    }
 
     func makeNSView(context: Context) -> ShelfItemsDragSourceNSView {
         let view = ShelfItemsDragSourceNSView()
         view.items = items
         view.onDraggingChanged = onDraggingChanged
+        view.onDragCompleted = onDragCompleted
+        view.onClick = onClick
+        view.onDoubleClick = onDoubleClick
         return view
     }
 
@@ -20,13 +90,16 @@ struct ShelfItemsDragSourceView: NSViewRepresentable {
     ) {
         nsView.items = items
         nsView.onDraggingChanged = onDraggingChanged
+        nsView.onDragCompleted = onDragCompleted
+        nsView.onClick = onClick
+        nsView.onDoubleClick = onDoubleClick
     }
 
     static func dismantleNSView(
         _ nsView: ShelfItemsDragSourceNSView,
         coordinator: Void
     ) {
-        nsView.cancelDragAppearance()
+        nsView.discardPendingDrag()
     }
 }
 
@@ -34,7 +107,13 @@ struct ShelfItemsDragSourceView: NSViewRepresentable {
 final class ShelfItemsDragSourceNSView: NSView, NSDraggingSource {
     var items: [ShelfItemRecord] = []
     var onDraggingChanged: (Bool) -> Void = { _ in }
+    var onDragCompleted: (ShelfItemsDragCompletion) -> Void = { _ in }
+    var onClick: (NSEvent.ModifierFlags) -> Void = { _ in }
+    var onDoubleClick: () -> Void = {}
     private var isDragging = false
+    private var mouseDownLocation: NSPoint?
+    private var didBeginDrag = false
+    private var activeDraggedItemIDs: Set<UUID> = []
     private var appearanceResetTask: Task<Void, Never>?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
@@ -42,7 +121,10 @@ final class ShelfItemsDragSourceNSView: NSView, NSDraggingSource {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        switch NSApp.currentEvent?.type {
+        guard !isHidden,
+              bounds.contains(convert(point, from: superview))
+        else { return nil }
+        switch NSApp?.currentEvent?.type {
         case .rightMouseDown, .rightMouseUp:
             return nil
         default:
@@ -50,12 +132,29 @@ final class ShelfItemsDragSourceNSView: NSView, NSDraggingSource {
         }
     }
 
+    override func mouseDown(with event: NSEvent) {
+        mouseDownLocation = event.locationInWindow
+        didBeginDrag = false
+    }
+
     override func mouseDragged(with event: NSEvent) {
-        guard !isDragging else { return }
+        guard !isDragging, !didBeginDrag,
+              let mouseDownLocation,
+              hypot(
+                event.locationInWindow.x - mouseDownLocation.x,
+                event.locationInWindow.y - mouseDownLocation.y
+              ) >= 3
+        else { return }
         let draggingItems = makeDraggingItems(for: event)
         guard !draggingItems.isEmpty else { return }
 
         isDragging = true
+        didBeginDrag = true
+        activeDraggedItemIDs = Set(
+            items.compactMap { item in
+                pasteboardWriter(for: item) == nil ? nil : item.id
+            }
+        )
         onDraggingChanged(true)
         let session = beginDraggingSession(
             with: draggingItems,
@@ -69,8 +168,14 @@ final class ShelfItemsDragSourceNSView: NSView, NSDraggingSource {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if !isDragging {
-            onDraggingChanged(false)
+        let shouldClick = mouseDownLocation != nil && !didBeginDrag
+            && bounds.contains(convert(event.locationInWindow, from: nil))
+        mouseDownLocation = nil
+        guard shouldClick else { return }
+        if event.clickCount >= 2 {
+            onDoubleClick()
+        } else {
+            onClick(event.modifierFlags)
         }
     }
 
@@ -78,7 +183,10 @@ final class ShelfItemsDragSourceNSView: NSView, NSDraggingSource {
         _ session: NSDraggingSession,
         sourceOperationMaskFor context: NSDraggingContext
     ) -> NSDragOperation {
-        .copy
+        ShelfItemsDragBehavior.sourceOperationMask(
+            alwaysCopyDraggedItems:
+                AppPreferences.alwaysCopyDraggedItems()
+        )
     }
 
     func draggingSession(
@@ -86,13 +194,30 @@ final class ShelfItemsDragSourceNSView: NSView, NSDraggingSource {
         endedAt screenPoint: NSPoint,
         operation: NSDragOperation
     ) {
+        let completion = ShelfItemsDragCompletion(
+            draggedItemIDs: activeDraggedItemIDs,
+            operation: operation,
+            modifierFlags: NSEvent.modifierFlags
+        )
+        activeDraggedItemIDs.removeAll()
         cancelDragAppearance()
+        onDragCompleted(completion)
     }
 
     func ignoreModifierKeys(
         for session: NSDraggingSession
     ) -> Bool {
-        true
+        ShelfItemsDragBehavior.ignoresModifierKeys(
+            alwaysCopyDraggedItems:
+                AppPreferences.alwaysCopyDraggedItems()
+        )
+    }
+
+    func discardPendingDrag() {
+        mouseDownLocation = nil
+        didBeginDrag = false
+        activeDraggedItemIDs.removeAll()
+        cancelDragAppearance()
     }
 
     func cancelDragAppearance() {

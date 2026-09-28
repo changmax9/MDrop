@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 import XCTest
 @testable import MDropCore
 
@@ -43,6 +44,65 @@ final class ActionCatalogTests: XCTestCase {
         )
         XCTAssertFalse(
             BuiltinActionCatalog.availableActions(for: []).contains(.createArchive)
+        )
+    }
+
+}
+
+@Suite("Instant action catalog")
+struct InstantActionCatalogTests {
+    @Test("Cardinality-sensitive actions match their executors")
+    func cardinalitySensitiveActions() {
+        let firstImage = ShelfItemRecord(
+            payload: .file(FileReference(url: URL(filePath: "/tmp/first.png"))),
+            displayName: "first.png"
+        )
+        let secondImage = ShelfItemRecord(
+            payload: .file(FileReference(url: URL(filePath: "/tmp/second.png"))),
+            displayName: "second.png"
+        )
+
+        let singleImageActions = BuiltinActionCatalog.availableActions(
+            for: [firstImage]
+        )
+        #expect(singleImageActions.contains(.rename))
+        #expect(!singleImageActions.contains(.stitchImages))
+
+        let multipleImageActions = BuiltinActionCatalog.availableActions(
+            for: [firstImage, secondImage]
+        )
+        #expect(!multipleImageActions.contains(.rename))
+        #expect(multipleImageActions.contains(.stitchImages))
+    }
+
+    @Test("Priority, limit, and availability remain deterministic")
+    func priorityLimitAndAvailability() {
+        let image = ShelfItemRecord(
+            payload: .file(FileReference(url: URL(filePath: "/tmp/photo.png"))),
+            displayName: "photo.png"
+        )
+
+        #expect(
+            BuiltinActionCatalog.instantActions(for: [image])
+                == [.systemShare, .copyTo, .moveTo, .resizeImages]
+        )
+        #expect(
+            BuiltinActionCatalog.instantActions(for: [image], limit: 2)
+                == [.systemShare, .copyTo]
+        )
+        #expect(
+            BuiltinActionCatalog.instantActions(
+                for: [ShelfItemRecord.text("hello")]
+            ) == [.systemShare, .copyText, .createArchive]
+        )
+        #expect(
+            BuiltinActionCatalog.instantActions(for: [], limit: 4).isEmpty
+        )
+        #expect(
+            BuiltinActionCatalog.instantActions(
+                for: [image],
+                limit: 0
+            ).isEmpty
         )
     }
 }

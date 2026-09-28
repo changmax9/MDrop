@@ -27,17 +27,30 @@ final class SettingsWindowController: NSWindowController {
             styleMask: [
                 .titled,
                 .closable,
-                .miniaturizable
+                .miniaturizable,
+                .resizable,
+                .fullSizeContentView
             ],
             backing: .buffered,
             defer: false
         )
+        hostingController.view.wantsLayer = true
+        hostingController.view.layer?.backgroundColor = NSColor.clear.cgColor
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.contentViewController = hostingController
         window.setContentSize(contentSize)
-        window.contentMinSize = contentSize
+        window.contentMinSize = NSSize(
+            width: SettingsLayout.minimumWidth,
+            height: SettingsLayout.minimumHeight
+        )
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
-        window.setFrameAutosaveName("MDrop.Settings")
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.toolbarStyle = .unified
+        window.setFrameAutosaveName("MDrop.Settings.Dropover")
 
         super.init(window: window)
         refreshLanguage()

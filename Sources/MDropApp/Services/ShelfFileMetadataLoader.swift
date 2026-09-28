@@ -54,15 +54,10 @@ enum ShelfFileMetadataLoader {
     ) -> ShelfFileMetadata {
         guard let url = item.fileURL else { return .empty }
         let values = try? url.resourceValues(
-            forKeys: [
-                .fileSizeKey,
-                .totalFileAllocatedSizeKey
-            ]
+            forKeys: [.fileSizeKey]
         )
         let byteCount = Int64(
-            values?.totalFileAllocatedSize
-                ?? values?.fileSize
-                ?? 0
+            values?.fileSize ?? 0
         )
         let pageCount: Int?
         if !Task.isCancelled,

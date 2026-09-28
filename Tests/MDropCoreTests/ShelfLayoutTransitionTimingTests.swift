@@ -10,10 +10,25 @@ struct ShelfLayoutTransitionTimingTests {
             reduceMotion: false
         )
 
-        #expect(timing.frameDuration == 0.36)
-        #expect(timing.contentFadeDuration == 0.11)
-        #expect(timing.contentSwapDelay == 0.11)
-        #expect(timing.completionDelay == 0.36)
+        #expect(timing.frameDuration == 0.23)
+        #expect(timing.contentFadeDuration == 0.12)
+        #expect(timing.contentSwapDelay == 0.12)
+        #expect(timing.completionDelay == 0.23)
+    }
+
+    @Test("Opening detail uses Dropover's 180 millisecond frame morph")
+    func openingDetailUsesReferenceDuration() {
+        let timing = ShelfLayoutTransitionTiming.resolve(
+            profile: .reference,
+            reduceMotion: false,
+            frameDuration:
+                ShelfMotionProfile.reference.detailExpandDuration
+        )
+
+        #expect(timing.frameDuration == 0.18)
+        #expect(timing.contentFadeDuration == 0.12)
+        #expect(timing.contentSwapDelay == 0.12)
+        #expect(timing.completionDelay == 0.18)
     }
 
     @Test("Reduce Motion completes one crossfade in 160 milliseconds")
@@ -36,8 +51,8 @@ struct ShelfLayoutTransitionTimingTests {
             reduceMotion: false
         ).delayingContentSwapUntilFrameSettles()
 
-        #expect(timing.contentFadeDuration == 0.11)
-        #expect(timing.contentSwapDelay == 0.25)
-        #expect(timing.completionDelay == 0.36)
+        #expect(timing.contentFadeDuration == 0.12)
+        #expect(timing.contentSwapDelay == 0.12)
+        #expect(timing.completionDelay == 0.23)
     }
 }

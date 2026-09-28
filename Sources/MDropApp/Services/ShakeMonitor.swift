@@ -4,6 +4,7 @@ import MDropCore
 @MainActor
 final class ShakeMonitor {
     private var detector = ShakeDetector()
+    private var detectorSensitivity = 0.5
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var hasTriggeredDuringDrag = false
@@ -19,12 +20,8 @@ final class ShakeMonitor {
         self.onDrag = onDrag
         self.onDragEnded = onDragEnded
         self.onShake = onShake
-        let sensitivity = UserDefaults.standard.object(forKey: "shakeSensitivity") as? Double ?? 0.5
-        detector = ShakeDetector(
-            configuration: .init(
-                minimumSegmentDistance: 30 - sensitivity * 18
-            )
-        )
+        detectorSensitivity = AppPreferences.shakeSensitivity()
+        detector = Self.makeDetector()
     }
 
     func start() {
@@ -54,12 +51,30 @@ final class ShakeMonitor {
         }
         let point = NSEvent.mouseLocation
         onDrag?(point)
-        let enabled = UserDefaults.standard.object(forKey: "shakeEnabled") as? Bool ?? true
-        guard enabled, !hasTriggeredDuringDrag else { return }
+        guard AppPreferences.shakeEnabled(),
+              !hasTriggeredDuringDrag
+        else { return }
+        refreshDetectorConfigurationIfNeeded()
         if detector.record(x: point.x, at: event.timestamp) {
             hasTriggeredDuringDrag = true
             onShake(point)
         }
+    }
+
+    private func refreshDetectorConfigurationIfNeeded() {
+        let sensitivity = AppPreferences.shakeSensitivity()
+        guard sensitivity != detectorSensitivity else { return }
+        detectorSensitivity = sensitivity
+        detector = Self.makeDetector()
+    }
+
+    private static func makeDetector() -> ShakeDetector {
+        ShakeDetector(
+            configuration: .init(
+                minimumSegmentDistance:
+                    AppPreferences.shakeMinimumSegmentDistance()
+            )
+        )
     }
 
     private var hasSupportedDragPayload: Bool {

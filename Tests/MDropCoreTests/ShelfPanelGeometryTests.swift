@@ -50,7 +50,7 @@ struct ShelfPanelGeometryTests {
 
     @Test("Docking resolves one final frame at either screen edge")
     func dockingResolvesOneFinalFrameAtEitherScreenEdge() {
-        let current = CGRect(x: 440, y: 120, width: 400, height: 207)
+        let current = CGRect(x: 440, y: 120, width: 400, height: 435)
         let visible = CGRect(x: 40, y: 30, width: 1_000, height: 700)
         let size = CGSize(width: 92, height: 250)
 
@@ -69,5 +69,38 @@ struct ShelfPanelGeometryTests {
 
         #expect(left == CGRect(x: 40, y: 120, width: 92, height: 250))
         #expect(right == CGRect(x: 948, y: 120, width: 92, height: 250))
+    }
+
+    @Test("Collapse snapshot follows the compact shelf edge or corner")
+    func collapseSnapshotUsesDropoverAnchoring() {
+        let expanded = CGRect(x: 100, y: 100, width: 400, height: 435)
+
+        #expect(
+            ShelfPanelGeometry.resizeAnchor(
+                from: expanded,
+                to: CGRect(x: 201, y: 214, width: 198, height: 207)
+            ) == ShelfResizeAnchor(
+                horizontal: .center,
+                vertical: .center
+            )
+        )
+        #expect(
+            ShelfPanelGeometry.resizeAnchor(
+                from: expanded,
+                to: CGRect(x: 100, y: 100, width: 198, height: 207)
+            ) == ShelfResizeAnchor(
+                horizontal: .minimum,
+                vertical: .minimum
+            )
+        )
+        #expect(
+            ShelfPanelGeometry.resizeAnchor(
+                from: expanded,
+                to: CGRect(x: 302, y: 328, width: 198, height: 207)
+            ) == ShelfResizeAnchor(
+                horizontal: .maximum,
+                vertical: .maximum
+            )
+        )
     }
 }

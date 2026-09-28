@@ -1,34 +1,31 @@
 import AppKit
 import MDropCore
 
+@MainActor
 enum PasteboardReader {
     static func representations(from pasteboard: NSPasteboard) -> [DropRepresentation] {
-        var result: [DropRepresentation] = []
-        let fileURLs = pasteboard.readObjects(
-            forClasses: [NSURL.self],
-            options: [.urlReadingFileURLsOnly: true]
-        ) as? [URL] ?? []
-        result.append(contentsOf: fileURLs.map(DropRepresentation.file))
-
-        for item in pasteboard.pasteboardItems ?? [] {
-            if let urlString = item.string(forType: .URL),
-               let url = URL(string: urlString),
-               !url.isFileURL {
-                result.append(.url(url))
-                continue
+        // One logical item can advertise a file, image, URL, and plain-text fallback.
+        // Choose its richest representation instead of adding the fallback as another item.
+        (pasteboard.pasteboardItems ?? []).compactMap { item in
+            if let value = item.string(forType: .fileURL),
+               let url = URL(string: value), url.isFileURL {
+                return .file(url)
+            }
+            if let value = item.string(forType: .URL),
+               let url = URL(string: value), url.scheme != nil {
+                return url.isFileURL ? .file(url) : .url(url)
+            }
+            if let data = item.data(forType: .png), !data.isEmpty {
+                return .binary(data, suggestedFilename: "Dropped Image.png")
+            }
+            if let data = item.data(forType: .tiff), !data.isEmpty {
+                return .binary(data, suggestedFilename: "Dropped Image.tiff")
             }
             if let string = item.string(forType: .string),
-               !string.isEmpty,
-               !fileURLs.contains(where: { $0.absoluteString == string }) {
-                result.append(.text(string))
-                continue
+               !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return .text(string)
             }
-            if let data = item.data(forType: .png) {
-                result.append(.binary(data, suggestedFilename: "Dropped Image.png"))
-            } else if let data = item.data(forType: .tiff) {
-                result.append(.binary(data, suggestedFilename: "Dropped Image.tiff"))
-            }
+            return nil
         }
-        return result
     }
 }

@@ -3,31 +3,34 @@ import Testing
 
 @Suite("Settings configuration")
 struct SettingsConfigurationTests {
-    @Test("Uses seven stable desktop settings sections")
+    @Test("Sidebar exposes only the wired settings areas")
     func sectionOrder() {
         #expect(
             SettingsSection.allCases.map(\.rawValue) == [
+                "shelfActivation",
+                "shelfInteraction",
                 "general",
-                "activationInteraction",
-                "actionsAutomation",
-                "shortcutsIntegrations",
-                "appearance",
-                "privacyLegal",
                 "about"
             ]
         )
     }
 
-    @Test("Preferred window keeps both columns inside safe bounds")
+    @Test("Preferred window matches the reference split layout")
     func windowGeometry() {
-        #expect(SettingsLayout.preferredWidth == 760)
-        #expect(SettingsLayout.preferredHeight == 520)
-        #expect(SettingsLayout.sidebarMinimumWidth == 230)
-        #expect(SettingsLayout.detailMinimumWidth == 480)
+        #expect(SettingsLayout.preferredWidth == 700)
+        #expect(SettingsLayout.preferredHeight == 600)
+        #expect(SettingsLayout.sidebarIdealWidth == 200)
         #expect(
             SettingsLayout.sidebarMinimumWidth
                 + SettingsLayout.detailMinimumWidth
-                <= SettingsLayout.preferredWidth
+                <= SettingsLayout.minimumWidth
         )
+    }
+
+    @Test("Instant Actions exposes four stable preference slots")
+    func instantActionSlotConfiguration() {
+        #expect(AppPreferences.instantActionSlotKeys.count == 4)
+        #expect(Set(AppPreferences.instantActionSlotKeys).count == 4)
+        #expect(AppPreferences.defaultInstantActionIDs.count == 4)
     }
 }

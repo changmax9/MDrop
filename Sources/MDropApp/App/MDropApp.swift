@@ -15,5 +15,13 @@ struct MDropApp: App {
                     languageController.locale
                 )
         }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button(AppLocalization.string("Settings…")) {
+                    AppServices.openSettings?()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 }

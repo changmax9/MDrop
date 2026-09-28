@@ -1,18 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2d3440"/>
-      <stop offset="0.62" stop-color="#141820"/>
-      <stop offset="1" stop-color="#080a0e"/>
+    <linearGradient id="surface" x1="0" y1="0" x2="0.85" y2="1">
+      <stop stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#f1f5fc"/>
+      <stop offset="1" stop-color="#d5e1f3"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#65d8ff"/>
+      <stop offset="0.48" stop-color="#2389f4"/>
+      <stop offset="1" stop-color="#2347c9"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="0.2" y2="1">
+      <stop stop-color="#479fff"/>
+      <stop offset="1" stop-color="#2437b3"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="0.8" y2="1">
+      <stop stop-color="#c1f5ff"/>
+      <stop offset="0.5" stop-color="#70d9ff"/>
+      <stop offset="1" stop-color="#3889ef"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.08"/>
     </linearGradient>
   </defs>
-  <rect x="64" y="64" width="896" height="896" rx="212" fill="url(#surface)"/>
-  <rect x="65" y="65" width="894" height="894" rx="211" fill="none" stroke="#ffffff" stroke-opacity=".12" stroke-width="2"/>
-  <path d="M222 704V326L418 500L512 410L606 500L802 326V704"
-        fill="none" stroke="#ffffff" stroke-width="84"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M512 410V726"
-        fill="none" stroke="#8de8ff" stroke-width="84"
-        stroke-linecap="round"/>
+  <rect x="64" y="74" width="896" height="896" rx="208" fill="#203b6b" opacity="0.10"/>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#surface)"/>
+  <rect x="68" y="68" width="888" height="888" rx="204" fill="none" stroke="url(#edge)" stroke-width="6"/>
+  <!-- Offset silhouettes give the folded ribbon a quiet, crisp depth. -->
+  <path d="M234 736V324Q234 302 256 318L512 510L768 318Q790 302 790 324V736L646 640V528L512 632L378 528V640Z" fill="#233e85" opacity="0.10" transform="translate(0 18)"/>
+  <path d="M234 720V308Q234 286 256 302L512 494V616L378 512V624Z" fill="url(#left)"/>
+  <path d="M512 494L768 302Q790 286 790 308V720L646 624V512L512 616Z" fill="url(#right)"/>
+  <path d="M256 302L512 494L768 302L646 512L512 616L378 512Z" fill="url(#fold)"/>
+  <path d="M256 302L512 494L768 302" fill="none" stroke="#e7fbff" stroke-opacity="0.75" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M512 494V616" fill="none" stroke="#d7f7ff" stroke-opacity="0.35" stroke-width="2"/>
+  <path d="M234 720L378 624V512" fill="none" stroke="#123aaf" stroke-opacity="0.20" stroke-width="2"/>
 </svg>

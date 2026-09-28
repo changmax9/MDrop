@@ -17,21 +17,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var notchDropController = NotchDropController { [weak self] representations in
         self?.coordinator.createShelf(with: representations)
     }
-    private lazy var folderMonitor = FolderMonitorService { [weak self] definition, urls in
-        self?.coordinator.receiveWatchedFiles(urls, definition: definition)
-    }
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         AppServices.coordinator = coordinator
+        AppServices.openSettings = { [weak self] in
+            self?.openSettings()
+        }
         configureServices()
         configureURLHandler()
         configureStatusItem()
         observeLanguageChanges()
         configureActivation()
-        configureAutomation()
         coordinator.restore()
         openCommandLineFiles()
+#if DEBUG
+        if CommandLine.arguments.contains("--open-settings") {
+            Task { @MainActor [weak self] in
+                self?.openSettings()
+            }
+        }
+#endif
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -45,9 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        AppServices.openSettings = nil
         shakeMonitor?.stop()
         hotKeyManager?.stop()
-        folderMonitor.stop()
         if let languageObserver {
             NotificationCenter.default.removeObserver(languageObserver)
         }
@@ -70,12 +75,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let dropView = StatusDropReceiverView(frame: button.bounds)
             dropView.autoresizingMask = [.width, .height]
             dropView.onClick = { [weak item] in item?.button?.performClick(nil) }
+            dropView.canAcceptDrop = {
+                AppPreferences.menuBarDropEnabled()
+            }
+            dropView.onTargeted = { [weak button] targeted in
+                button?.highlight(targeted)
+            }
+            dropView.onImportingChanged = { [weak button] importing in
+                button?.highlight(importing)
+            }
             dropView.onDrop = { [weak self] representations in
-                guard UserDefaults.standard.object(
-                    forKey: "menuBarDropEnabled"
-                ) as? Bool ?? true else {
-                    return
-                }
+                guard AppPreferences.menuBarDropEnabled() else { return }
                 self?.coordinator.createShelf(with: representations)
             }
             button.addSubview(dropView)
@@ -205,9 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func configureActivation() {
         shakeMonitor = ShakeMonitor(
             onDrag: { [weak self] point in
-                guard UserDefaults.standard.object(
-                    forKey: "notchDropEnabled"
-                ) as? Bool ?? true else {
+                guard AppPreferences.notchDropEnabled() else {
                     self?.notchDropController.hide()
                     return
                 }
@@ -232,14 +240,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             hotKeyManager?.registrationFailures ?? [],
             forKey: "hotKeyRegistrationFailures"
         )
-    }
-
-    private func configureAutomation() {
-        let automation = AutomationStore.shared
-        automation.onChange = { [weak self] in
-            self?.folderMonitor.update(AutomationStore.shared.watchedFolders)
-        }
-        folderMonitor.update(automation.watchedFolders)
     }
 
     private func configureServices() {

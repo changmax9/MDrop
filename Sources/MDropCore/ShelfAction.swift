@@ -69,6 +69,23 @@ public enum BuiltinActionCatalog {
     private static let imageExtensions: Set<String> = [
         "avif", "bmp", "gif", "heic", "heif", "jpeg", "jpg", "png", "tif", "tiff", "webp"
     ]
+    private static let instantActionPriority: [BuiltinActionID] = [
+        .systemShare,
+        .copyTo,
+        .moveTo,
+        .copyText,
+        .resizeImages,
+        .convertImages,
+        .compressImages,
+        .extractText,
+        .createPDF,
+        .createArchive,
+        .copyPath,
+        .rename,
+        .removeImageMetadata,
+        .stitchImages,
+        .moveToTrash
+    ]
 
     public static func availableActions(
         for items: [ShelfItemRecord]
@@ -83,7 +100,10 @@ public enum BuiltinActionCatalog {
         }
 
         if allFiles {
-            actions.formUnion([.copyTo, .moveTo, .rename, .copyPath, .moveToTrash])
+            actions.formUnion([.copyTo, .moveTo, .copyPath, .moveToTrash])
+            if items.count == 1 {
+                actions.insert(.rename)
+            }
         }
 
         if allImages {
@@ -92,10 +112,12 @@ public enum BuiltinActionCatalog {
                 .convertImages,
                 .compressImages,
                 .removeImageMetadata,
-                .stitchImages,
                 .extractText,
                 .createPDF
             ])
+            if items.count >= 2 {
+                actions.insert(.stitchImages)
+            }
         }
 
         if items.contains(where: \.containsText) {
@@ -104,6 +126,19 @@ public enum BuiltinActionCatalog {
 
         return actions
     }
+
+    public static func instantActions(
+        for items: [ShelfItemRecord],
+        limit: Int = ShelfInstantActionLayout.actionLimit
+    ) -> [BuiltinActionID] {
+        guard limit > 0 else { return [] }
+        let available = availableActions(for: items)
+        return instantActionPriority
+            .filter(available.contains)
+            .prefix(limit)
+            .map { $0 }
+    }
+
 }
 
 public extension ShelfItemRecord {

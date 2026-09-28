@@ -8,7 +8,8 @@ struct ShelfMarqueeText: View {
     var viewportWidth: CGFloat = 88
     var viewportHeight: CGFloat = 20
 
-    @AppStorage("reduceShelfMotion") private var reduceShelfMotion = false
+    @AppStorage(AppPreferences.reduceMotionKey)
+    private var reduceShelfMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var textWidth: CGFloat = 0
     @State private var offset: CGFloat = 0

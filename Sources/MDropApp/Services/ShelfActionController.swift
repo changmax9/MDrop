@@ -5,7 +5,6 @@ import MDropCore
 final class ShelfActionController {
     private let executor = BuiltinActionExecutor()
     private let ingestService = DragIngestService(stagingDirectory: AppPaths.staging)
-    private let scriptRunner = ScriptRunner()
 
     func run(
         _ action: BuiltinActionID,
@@ -15,6 +14,7 @@ final class ShelfActionController {
         onClose: @escaping () -> Void,
         presetParameters: [String: ActionParameterValue]? = nil
     ) {
+        guard store.actionProgress == nil else { return }
         let items = selectedItems(in: store)
         guard !items.isEmpty else { return }
 
@@ -70,69 +70,6 @@ final class ShelfActionController {
                 store.actionProgress = nil
                 store.cancelAction = nil
                 store.errorMessage = error.localizedDescription
-            }
-        }
-    }
-
-    func run(
-        _ preset: CustomActionPreset,
-        store: ShelfStore,
-        panel: NSPanel,
-        onChange: @escaping () -> Void,
-        onClose: @escaping () -> Void
-    ) {
-        run(
-            preset.action,
-            store: store,
-            panel: panel,
-            onChange: onChange,
-            onClose: onClose,
-            presetParameters: preset.parameters
-        )
-    }
-
-    func run(
-        _ script: ScriptDefinition,
-        store: ShelfStore,
-        onChange: @escaping () -> Void,
-        onClose: @escaping () -> Void
-    ) {
-        let fileURLs = selectedItems(in: store).compactMap(\.fileURL)
-        let runID = UUID()
-        store.actionProgress = 0
-        store.cancelAction = { [weak self, weak store] in
-            Task {
-                await self?.scriptRunner.cancel(runID)
-                await MainActor.run {
-                    store?.cancelAction = nil
-                }
-            }
-        }
-        Task {
-            do {
-                let result = try await scriptRunner.run(
-                    script,
-                    fileURLs: fileURLs,
-                    logsDirectory: AppPaths.scriptLogs,
-                    runID: runID
-                )
-                if script.outputMode == .clipboard {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(result.standardOutput, forType: .string)
-                }
-                store.actionProgress = nil
-                store.cancelAction = nil
-                store.isCommandBarPresented = false
-                onChange()
-                if script.closesShelfOnSuccess {
-                    onClose()
-                }
-            } catch {
-                store.actionProgress = nil
-                store.cancelAction = nil
-                if (error as? ScriptRunError) != .cancelled {
-                    store.errorMessage = error.localizedDescription
-                }
             }
         }
     }
@@ -228,9 +165,9 @@ extension BuiltinActionID {
         case .stitchImages: AppLocalization.string("Stitch Images")
         case .extractText: AppLocalization.string("Extract Text")
         case .createPDF: AppLocalization.string("Create PDF")
-        case .copyText: AppLocalization.string("Copy Text")
+        case .copyText: AppLocalization.string("Copy Text Content")
         case .createArchive:
-            AppLocalization.string("Create ZIP Archive")
+            AppLocalization.string("Create ZIP Archive…")
         case .copyTo: AppLocalization.string("Copy to…")
         case .moveTo: AppLocalization.string("Move to…")
         case .rename: AppLocalization.string("Rename…")
@@ -249,13 +186,13 @@ extension BuiltinActionID {
         case .stitchImages: "rectangle.3.group"
         case .extractText: "text.viewfinder"
         case .createPDF: "doc.richtext"
-        case .copyText: "doc.on.doc"
-        case .createArchive: "archivebox"
-        case .copyTo: "square.on.square"
-        case .moveTo: "folder"
-        case .rename: "pencil"
-        case .copyPath: "point.bottomleft.forward.to.point.topright.scurvepath"
-        case .moveToTrash: "trash"
+        case .copyText: "doc.text.fill"
+        case .createArchive: "archivebox.fill"
+        case .copyTo: "square.fill.on.square"
+        case .moveTo: "arrow.up.right.square.fill"
+        case .rename: "pencil.circle.fill"
+        case .copyPath: "terminal.fill"
+        case .moveToTrash: "trash.fill"
         }
     }
 }
